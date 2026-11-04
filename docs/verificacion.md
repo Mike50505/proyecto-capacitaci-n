@@ -1,5 +1,7 @@
 # Verificación de MESA Formación
 
+Actualización 4 de noviembre de 2026: 14 pruebas funcionales correctas. Se añadió gestión de usuarios exclusiva del administrador y se comprobó que los encargados pueden crear/publicar exámenes y consultar dashboards, pero reciben 403 al listar, crear o modificar cuentas. La desactivación invalida las sesiones y la cuenta administradora no puede desactivarse. El renderizador también comprueba que el menú Usuarios solo aparece con el permiso correspondiente.
+
 Fecha: 3 de noviembre de 2026.
 
 - Se extrajeron los seis Word originales y se conservaron sus huellas SHA-256 en `data/source_manifest.json`.

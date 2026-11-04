@@ -24,6 +24,8 @@ Los documentos no contienen una clave oficial: todas las preguntas iniciales req
 
 ## Administración
 
+El apartado **Usuarios** está disponible únicamente para la cuenta administradora. Permite crear encargados de capacitación, editar sus nombres, activar/desactivar el acceso y restablecer contraseñas. Los encargados tienen las mismas funciones de exámenes, resultados, revisión y dashboards, excepto administrar cuentas. Desactivar una cuenta cierra sus sesiones y conserva sus registros. El administrador permanece activo; los permisos se comprueban en el servidor.
+
 - Dashboard con participación, pendientes, promedio y aprobación solo de evaluaciones calificadas; filtros por examen, participante y fechas.
 - Exámenes con borradores, publicación versionada, archivo/restauración y enlaces para compartir.
 - Nueve tipos: opción única, selección múltiple, verdadero/falso, respuesta corta/larga, número, relaciones, tablas e imagen con marcas.

@@ -17,6 +17,9 @@ vm.runInContext(source,context);
  vm.runInContext('session={authenticated:true,username:"synthetic"};editorId=null;editorVersion=null;editor={title:"Editor de prueba",description:"",category:"Prueba",duration:20,pass_score:80,instructions:"",questions:Object.keys(typeNames).map(type=>newQuestion(type))};paintEditor()',context);
  assert.match(elements.get('#app').innerHTML,/Tabla de respuestas/);
  assert.match(elements.get('#app').innerHTML,/Calificar automáticamente/);
+ assert.doesNotMatch(vm.runInContext('adminLayout("", "dashboard")',context),/href="#users"/);
+ vm.runInContext('session.manage_users=true',context);
+ assert.match(vm.runInContext('adminLayout("", "dashboard")',context),/href="#users"/);
  for(const exam of exams){context.sample=exam;const html=vm.runInContext('sample.questions.map(q=>answerControl(q,undefined)).join("")',context);assert.equal(typeof html,'string');assert.ok(html.length>200)}
  vm.runInContext('current={exam_title:"Examen",exam_id:"exam-1",participant:{name:"Persona sintética"},summary:{score:null},status:"pending_review",id:1,submitted_at:new Date().toISOString()};renderDone()',context);
  assert.match(elements.get('#app').innerHTML,/pendiente de revisión/);

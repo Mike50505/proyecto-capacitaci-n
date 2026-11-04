@@ -77,5 +77,24 @@ class PortalTests(unittest.TestCase):
         req=urllib.request.Request(self.base+'/api/login',data=b'{}',headers={'Origin':'https://example.invalid','Content-Type':'application/json'})
         with self.assertRaises(urllib.error.HTTPError) as caught:self.client.open(req)
         self.assertEqual(caught.exception.code,403)
+    def test_trainer_permissions_and_deactivation(self):
+        self.login();owner_client=self.client;owner_csrf=self.csrf
+        username='trainer_test';password='SyntheticPassword2026'
+        code,created=self.request('/admin/users','POST',{'username':username,'password':password,'full_name':'Capacitador sintético','role':'administrator'})
+        self.assertEqual(code,201,created)
+        user=self.request('/admin/users')[1][-1];self.assertEqual(user['role'],'trainer');self.assertNotIn('password_hash',user)
+        self.client=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()));self.csrf=''
+        code,login=self.request('/login','POST',{'username':username,'password':password});self.assertEqual(code,200);self.assertFalse(login['manage_users']);self.csrf=login['csrf']
+        self.assertEqual(self.request('/admin/users')[0],403)
+        self.assertEqual(self.request('/admin/users','POST',{'username':'forbidden','password':password})[0],403)
+        self.assertEqual(self.request('/admin/users/'+str(created['id']),'PUT',{'role':'administrator','active':True})[0],403)
+        self.assertEqual(self.request('/admin/dashboard')[0],200)
+        self.new_exam('Examen creado por encargado')
+        trainer_client=self.client;trainer_csrf=self.csrf;self.client=owner_client;self.csrf=owner_csrf
+        self.assertEqual(self.request('/admin/users/'+str(created['id']),'PUT',{'full_name':'Capacitador','active':False})[0],200)
+        self.client=trainer_client;self.csrf=trainer_csrf;self.assertEqual(self.request('/admin/dashboard')[0],403)
+    def test_owner_cannot_be_deactivated(self):
+        self.login();owner=next(u for u in self.request('/admin/users')[1] if u['role']=='administrator')
+        self.assertEqual(self.request('/admin/users/'+str(owner['id']),'PUT',{'active':False})[0],400)
 
 if __name__=='__main__':unittest.main()

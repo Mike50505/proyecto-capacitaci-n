@@ -39,9 +39,16 @@ def initialize():
         CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,actor INTEGER REFERENCES users(id),action TEXT NOT NULL,object_id TEXT NOT NULL,details TEXT NOT NULL,created_at TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS attempts_exam_date ON attempts(exam_id,submitted_at);
         ''')
+        columns={row['name'] for row in c.execute('PRAGMA table_info(users)')}
+        if 'role' not in columns:
+            c.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'trainer'")
+            owner=c.execute("SELECT id FROM users ORDER BY CASE WHEN username IN ('administrator','admin') THEN 0 ELSE 1 END,id LIMIT 1").fetchone()
+            if owner:c.execute("UPDATE users SET role='administrator' WHERE id=?",(owner['id'],))
+        if 'active' not in columns:c.execute('ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1')
+        if 'full_name' not in columns:c.execute("ALTER TABLE users ADD COLUMN full_name TEXT NOT NULL DEFAULT ''")
         if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
             password=secrets.token_urlsafe(15);salt=secrets.token_hex(16)
-            c.execute('INSERT INTO users(username,password_hash,salt) VALUES(?,?,?)',('admin',password_hash(password,salt),salt))
+            c.execute('INSERT INTO users(username,password_hash,salt,role) VALUES(?,?,?,?)',('admin',password_hash(password,salt),salt,'administrator'))
             (PRIVATE/'primer_acceso.txt').write_text('MESA Formación\nUsuario: admin\nContraseña: '+password+'\nCambia la contraseña desde el panel de administración.\n',encoding='utf-8')
         seed=ROOT/'data/exams.json'
         if seed.exists():
@@ -186,7 +193,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:return None
         token=cookie.get('mesa_training')
         if not token:return None
-        return c.execute('SELECT sessions.*,users.username FROM sessions JOIN users ON users.id=sessions.user_id WHERE token_hash=? AND expires>?',(digest(token.value),time.time())).fetchone()
+        return c.execute('SELECT sessions.*,users.username,users.role,users.full_name FROM sessions JOIN users ON users.id=sessions.user_id WHERE token_hash=? AND expires>? AND users.active=1',(digest(token.value),time.time())).fetchone()
     def require_admin(self,c,write=False):
         s=self.session(c)
         if not s:raise PermissionError('Inicia sesión para continuar.')
@@ -224,16 +231,16 @@ class Handler(BaseHTTPRequestHandler):
         data=target.read_bytes();self.send_response(200);self.send_header('Content-Type',mimetypes.guess_type(target.name)[0] or 'application/octet-stream');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-cache');self.security_headers();self.end_headers();self.wfile.write(data)
     def api(self,c,method,path,params):
         if path=='/api/session' and method=='GET':
-            s=self.session(c);return self.send_json({'authenticated':bool(s),'username':s['username'] if s else None,'csrf':s['csrf'] if s else None})
+            s=self.session(c);return self.send_json({'authenticated':bool(s),'username':s['username'] if s else None,'csrf':s['csrf'] if s else None,'manage_users':bool(s and s['role']=='administrator')})
         if path=='/api/login' and method=='POST':
             data=self.body();ip=self.client_address[0];failures=[x for x in LOGIN_FAILURES.get(ip,[]) if x>time.time()-300]
             if len(failures)>=10:return self.send_json({'error':'Espera unos minutos antes de volver a intentar.'},429)
             u=c.execute('SELECT * FROM users WHERE username=?',(data.get('username',''),)).fetchone()
-            if not u or not hmac.compare_digest(password_hash(str(data.get('password','')),u['salt']),u['password_hash']):
+            if not u or not u['active'] or not hmac.compare_digest(password_hash(str(data.get('password','')),u['salt']),u['password_hash']):
                 LOGIN_FAILURES[ip]=failures+[time.time()];return self.send_json({'error':'Usuario o contraseña incorrectos.'},400)
             token=secrets.token_urlsafe(32);csrf=secrets.token_urlsafe(24)
             c.execute('INSERT INTO sessions VALUES(?,?,?,?)',(digest(token),u['id'],csrf,time.time()+28800));LOGIN_FAILURES.pop(ip,None)
-            return self.send_json({'authenticated':True,'username':u['username'],'csrf':csrf},cookie=f'mesa_training={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'+('; Secure' if os.environ.get('TRAINING_SECURE_COOKIE')=='1' else ''))
+            return self.send_json({'authenticated':True,'username':u['username'],'csrf':csrf,'manage_users':u['role']=='administrator'},cookie=f'mesa_training={token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800'+('; Secure' if os.environ.get('TRAINING_SECURE_COOKIE')=='1' else ''))
         if path=='/api/logout' and method=='POST':
             s=self.require_admin(c,True);c.execute('DELETE FROM sessions WHERE token_hash=?',(s['token_hash'],));return self.send_json({'ok':True},cookie='mesa_training=; Max-Age=0; HttpOnly; SameSite=Strict; Path=/')
         if path=='/api/exams' and method=='GET':
@@ -274,6 +281,36 @@ class Handler(BaseHTTPRequestHandler):
                 c.execute('UPDATE attempts SET answers=? WHERE id=?',(dump(answers),r['id']));return self.send_json({'saved':True})
         if path.startswith('/api/admin/'):
             s=self.require_admin(c,method!='GET');uid=s['user_id']
+            if path=='/api/admin/users' or re.fullmatch(r'/api/admin/users/\d+',path):
+                if s['role']!='administrator':raise PermissionError('Solo el administrador puede gestionar usuarios.')
+                if path=='/api/admin/users' and method=='GET':
+                    return self.send_json([dict(r) for r in c.execute('SELECT id,username,full_name,role,active FROM users ORDER BY id')])
+                data=self.body();name=clean_text(data.get('full_name',''),150)
+                if path=='/api/admin/users' and method=='POST':
+                    username=clean_text(data.get('username',''),80)
+                    if not re.fullmatch(r'[A-Za-z0-9_.-]{3,80}',username):raise ValueError('El usuario debe tener entre 3 y 80 letras, números, puntos, guiones o guiones bajos.')
+                    if c.execute('SELECT 1 FROM users WHERE lower(username)=lower(?)',(username,)).fetchone():raise ValueError('Ese nombre de usuario ya existe.')
+                    password=str(data.get('password',''))
+                    if len(password)<10:raise ValueError('Usa una contraseña de al menos 10 caracteres.')
+                    salt=secrets.token_hex(16)
+                    created=c.execute("INSERT INTO users(username,password_hash,salt,role,full_name) VALUES(?,?,?,'trainer',?)",(username,password_hash(password,salt),salt,name))
+                    audit(c,uid,'user_created',created.lastrowid,{'username':username,'role':'trainer'})
+                    return self.send_json({'id':created.lastrowid},201)
+                if method=='PUT' and path!='/api/admin/users':
+                    target_id=int(path.rsplit('/',1)[1]);target=c.execute('SELECT * FROM users WHERE id=?',(target_id,)).fetchone()
+                    if not target:return self.send_json({'error':'Usuario no encontrado.'},404)
+                    active=data.get('active',bool(target['active']))
+                    if not isinstance(active,bool):raise ValueError('Estado inválido.')
+                    if target['role']=='administrator' and not active:raise ValueError('La cuenta administradora debe permanecer activa.')
+                    c.execute('UPDATE users SET full_name=?,active=? WHERE id=?',(name,active,target_id))
+                    password=str(data.get('password',''))
+                    if password:
+                        if len(password)<10:raise ValueError('Usa una contraseña de al menos 10 caracteres.')
+                        salt=secrets.token_hex(16);c.execute('UPDATE users SET password_hash=?,salt=? WHERE id=?',(password_hash(password,salt),salt,target_id))
+                    if password or not active:c.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?',(target_id,s['token_hash']))
+                    audit(c,uid,'user_updated',target_id,{'active':active,'password_reset':bool(password)})
+                    return self.send_json({'ok':True})
+                return self.send_json({'error':'Acción no disponible.'},405)
             if path=='/api/admin/password' and method=='POST':
                 data=self.body();u=c.execute('SELECT * FROM users WHERE id=?',(uid,)).fetchone()
                 if not hmac.compare_digest(password_hash(str(data.get('current','')),u['salt']),u['password_hash']):raise ValueError('La contraseña actual es incorrecta.')

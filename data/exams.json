@@ -1,0 +1,686 @@
+[
+  {
+    "id": "exam-1",
+    "title": "Cinta métrica",
+    "description": "Lectura de medidas en pulgadas y conversión a milímetros.",
+    "category": "Metrología",
+    "revision": "Rev. 03 · FO-RH-13",
+    "source_file": "Cinta métrica Rev.03 actualizar.doc",
+    "duration": 20,
+    "pass_score": 80,
+    "instructions": "Lee cada pregunta y responde de acuerdo con lo aprendido en tu capacitación. Las preguntas y figuras provienen del documento de referencia.",
+    "questions": [
+      {
+        "id": "c1",
+        "prompt": "¿A cuántos milímetros equivale una pulgada?",
+        "type": "number",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "section": "I. Escribe la respuesta correcta"
+      },
+      {
+        "id": "c2",
+        "prompt": "¿Cuántos milímetros hay en 1 ¾ pulgadas?",
+        "type": "number",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "section": "I. Escribe la respuesta correcta"
+      },
+      {
+        "id": "c3",
+        "prompt": "¿Cuántos milímetros hay en 2 ½ pulgadas?",
+        "type": "number",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "section": "I. Escribe la respuesta correcta"
+      },
+      {
+        "id": "c4",
+        "prompt": "Realiza la lectura de la marca indicada en la regla 1, en pulgadas y su conversión a milímetros.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/cinta-lectura-1.png",
+        "rows": [
+          "Marca indicada"
+        ],
+        "columns": [
+          "Pulgadas (fracción)",
+          "Milímetros (mm)"
+        ],
+        "section": "II. Lectura de reglas",
+        "help": "Ejemplo del documento: 28/32 = 14/16 = 7/8 de pulgada = 22.225 mm."
+      },
+      {
+        "id": "c5",
+        "prompt": "Realiza la lectura de la marca indicada en la regla 2, en pulgadas y su conversión a milímetros.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/cinta-lectura-2.png",
+        "rows": [
+          "Marca indicada"
+        ],
+        "columns": [
+          "Pulgadas (fracción)",
+          "Milímetros (mm)"
+        ],
+        "section": "II. Lectura de reglas",
+        "help": ""
+      },
+      {
+        "id": "c6",
+        "prompt": "Realiza la lectura de la marca indicada en la regla 3, en pulgadas y su conversión a milímetros.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/cinta-lectura-3.png",
+        "rows": [
+          "Marca indicada"
+        ],
+        "columns": [
+          "Pulgadas (fracción)",
+          "Milímetros (mm)"
+        ],
+        "section": "II. Lectura de reglas",
+        "help": ""
+      },
+      {
+        "id": "c7",
+        "prompt": "Realiza la lectura de la marca indicada en la regla 4, en pulgadas y su conversión a milímetros.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/cinta-lectura-4.png",
+        "rows": [
+          "Marca indicada"
+        ],
+        "columns": [
+          "Pulgadas (fracción)",
+          "Milímetros (mm)"
+        ],
+        "section": "II. Lectura de reglas",
+        "help": ""
+      },
+      {
+        "id": "c8",
+        "prompt": "Realiza las conversiones de pulgadas a milímetros de las dimensiones del dibujo.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/cinta-conversiones.png",
+        "rows": [
+          "6.82 pulgadas",
+          "5.07 pulgadas",
+          "4.82 pulgadas",
+          "Ø 0.257 pulgadas",
+          "4.44 pulgadas",
+          "2.69 pulgadas",
+          "0.875 pulgadas (nota del dibujo)"
+        ],
+        "columns": [
+          "Milímetros (mm)"
+        ],
+        "section": "III. Conversiones",
+        "help": "El original presenta las cotas en el dibujo; aquí se ofrecen campos para registrar cada conversión."
+      }
+    ]
+  },
+  {
+    "id": "exam-2",
+    "title": "Interpretación básica de dibujo",
+    "description": "Identifica vistas, números de parte, materiales y tolerancias en dibujos de fabricación.",
+    "category": "Dibujo técnico",
+    "revision": "Rev. 01 · FO-RH-14",
+    "source_file": "Evaluacion de  Interpretacion Básica de Dibujo REV.01.doc",
+    "duration": 20,
+    "pass_score": 80,
+    "instructions": "Lee cada pregunta y responde de acuerdo con lo aprendido en tu capacitación. Las preguntas y figuras provienen del documento de referencia.",
+    "questions": [
+      {
+        "id": "d1",
+        "prompt": "¿Para qué sirve el dibujo de fabricación en el proceso?",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "d2",
+        "prompt": "Selecciona los puntos críticos en los dibujos. Puede ser más de uno.",
+        "type": "multiple",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "Tolerancias",
+          "Descripción",
+          "Liberación de primera pieza",
+          "FCD’s",
+          "Número de parte"
+        ]
+      },
+      {
+        "id": "d3",
+        "prompt": "Escribe el nombre de las siguientes vistas.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/dibujo-vistas.png",
+        "rows": [
+          "Vista del lado izquierdo",
+          "Vista superior del lado derecho",
+          "Vista inferior del lado derecho"
+        ],
+        "columns": [
+          "Nombre de la vista"
+        ]
+      },
+      {
+        "id": "d4",
+        "prompt": "Menciona la diferencia que hay entre cada empresa para buscar el dibujo en Master Web.",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "help": "Ejemplo del documento: con Lennox se busca con el número de parte individual o colocando al final -00."
+      },
+      {
+        "id": "d5",
+        "prompt": "Encierra el número de parte del dibujo.",
+        "type": "image_mark",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/dibujo-parte.png",
+        "help": "Marca la ubicación del número de parte en la imagen."
+      },
+      {
+        "id": "d6",
+        "prompt": "Encierra cuáles son las tolerancias en el dibujo.",
+        "type": "image_mark",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/dibujo-tolerancias.png",
+        "help": "Puedes colocar varias marcas."
+      },
+      {
+        "id": "d7",
+        "prompt": "Encierra dónde viene ubicado el material en el siguiente dibujo.",
+        "type": "image_mark",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/dibujo-material.png"
+      },
+      {
+        "id": "d8",
+        "prompt": "De acuerdo con las tolerancias del dibujo, determina la tolerancia máxima y la tolerancia mínima de las siguientes medidas.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/dibujo-limites.png",
+        "rows": [
+          "23.15",
+          "32",
+          "6.4",
+          "65°"
+        ],
+        "columns": [
+          "Tolerancia máxima",
+          "Tolerancia mínima"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "exam-3",
+    "title": "Liberación de primera pieza",
+    "description": "Evalúa el proceso, las responsabilidades y el registro de la liberación de primera pieza.",
+    "category": "Calidad",
+    "revision": "Rev. 02 · FO-RH-14",
+    "source_file": "Evaluacion Liberacion de 1ra pieza Rev.02.docx",
+    "duration": 20,
+    "pass_score": 80,
+    "instructions": "Lee cada pregunta y responde de acuerdo con lo aprendido en tu capacitación. Las preguntas y figuras provienen del documento de referencia.",
+    "questions": [
+      {
+        "id": "p1",
+        "prompt": "¿Qué es liberación de primera pieza?",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "p2",
+        "prompt": "¿Cuál es el objetivo de la liberación de primera pieza?",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "p3",
+        "prompt": "Explica brevemente el proceso general para realizar liberación de primera pieza.",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "p4",
+        "prompt": "¿Qué se debe hacer si no cumple con las especificaciones y la pieza es rechazada?",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "p5",
+        "prompt": "¿Quién autoriza la liberación de primera pieza?",
+        "type": "text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "p6",
+        "prompt": "¿Puedo usar un mismo formato para dos máquinas diferentes?",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "Cierto",
+          "Falso"
+        ]
+      },
+      {
+        "id": "p7",
+        "prompt": "Menciona los puntos más importantes a llenar en el formato de liberación de primera pieza:",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      }
+    ]
+  },
+  {
+    "id": "exam-4",
+    "title": "Política y objetivos de calidad",
+    "description": "Conoce la política, las directrices, los objetivos, la visión y la misión de MESA.",
+    "category": "Cultura MESA",
+    "revision": "Rev. 18 · FO-RH-01",
+    "source_file": "Evaluación   Política y Objetivos de Calidad Rev 18 - copia.doc",
+    "duration": 20,
+    "pass_score": 80,
+    "instructions": "Lee cada pregunta y responde de acuerdo con lo aprendido en tu capacitación. Las preguntas y figuras provienen del documento de referencia.",
+    "questions": [
+      {
+        "id": "a1",
+        "prompt": "Selecciona el párrafo correspondiente a nuestra política de calidad MESA.",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Ser reconocidos y respetados como líderes innovadores y excelentes socios comerciales, proporcionando valores únicos y difíciles de igualar en todos nuestros productos.",
+          "B) En MESA nos comprometemos con nuestros clientes, colaboradores y otras audiencias clave; estableciendo altos estándares y en cumplimiento de las normas, para ofrecer productos y servicios de alta calidad en la industria, buscando la excelencia para mantenernos como una empresa rentable y socialmente responsable a través de la mejora continua e innovación.",
+          "C) En MESA estamos comprometidos en consolidarnos como líderes en la fabricación de partes de cobre y aluminio."
+        ]
+      },
+      {
+        "id": "a2",
+        "prompt": "Escribe las cuatro directrices de MESA.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/calidad-directrices.png",
+        "rows": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "columns": [
+          "Directriz"
+        ]
+      },
+      {
+        "id": "a3",
+        "prompt": "Relaciona cada objetivo de calidad con la meta correspondiente.",
+        "type": "matching",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "rows": [
+          "Calidad",
+          "OTD (Entregas a tiempo)",
+          "Ética empresarial",
+          "Satisfacción de clientes",
+          "Satisfacción de empleados",
+          "Productividad"
+        ],
+        "options": [
+          "A. 99% mínimo",
+          "B. 85% mínimo",
+          "C. 175 PPM máximo",
+          "D. 5% mínimo",
+          "E. 86% mínimo",
+          "F. 97% mínimo"
+        ]
+      },
+      {
+        "id": "a4",
+        "prompt": "Relaciona el significado con su concepto dentro de MESA.",
+        "type": "matching",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "rows": [
+          "Es el modo en que MESA pretende hacer realidad nuestra visión.",
+          "Son considerados la guía que como MESA debemos seguir y respetar para cumplir con nuestra política de calidad.",
+          "Es el objetivo de MESA."
+        ],
+        "options": [
+          "Visión",
+          "Misión",
+          "Valores organizacionales"
+        ]
+      },
+      {
+        "id": "a5",
+        "prompt": "Señala cuál es la visión de MESA.",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Ser líder en soluciones innovadoras con nuestros productos y servicios reconocidos por sumar la cadena de valor de nuestro cliente, sosteniendo relaciones de largo plazo basadas en la confianza.",
+          "B) Convertirnos en una empresa reconocida en la región centro del país, por medio de un excepcional servicio a nuestros clientes.",
+          "C) Fija el rumbo de la institución, plantea retos, sirve como consenso, estimula la creatividad y coordina esfuerzos."
+        ]
+      },
+      {
+        "id": "a6",
+        "prompt": "Señala cuál es la misión de MESA.",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Es una herramienta estratégica que sintetiza el propósito de una empresa.",
+          "B) Ofrecer valor a nuestros clientes, colaboradores y otras audiencias clave, basados en un negocio exitoso por medio de la innovación, seguridad, calidad y cuidado del medio ambiente, consolidándonos mediante la oferta de productos y servicios imprescindibles en la cadena de suministro.",
+          "C) Mejora la calidad mediante la gestión por administración eficiente de los recursos para construir, mantener y rehabilitar la infraestructura."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "exam-5",
+    "title": "Uso de Master Web",
+    "description": "Control de documentos, revisiones vigentes y buenas prácticas en el Sistema de Gestión de Calidad.",
+    "category": "Sistema de calidad",
+    "revision": "Rev. 03 · FO-RH-13",
+    "source_file": "Evaluación Master Web.doc",
+    "duration": 20,
+    "pass_score": 80,
+    "instructions": "Lee cada pregunta y responde de acuerdo con lo aprendido en tu capacitación. Las preguntas y figuras provienen del documento de referencia.",
+    "questions": [
+      {
+        "id": "m1",
+        "prompt": "¿Cuál es la función principal de Master Web?",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Almacenar archivos personales de los empleados",
+          "B) Administrar y controlar la documentación del Sistema de Gestión de Calidad",
+          "C) Crear reportes de producción",
+          "D) Sustituir los equipos de cómputo de la empresa"
+        ]
+      },
+      {
+        "id": "m2",
+        "prompt": "¿Por qué es importante utilizar Master Web?",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Porque permite tener documentos vigentes, identificados y controlados",
+          "B) Porque evita utilizar cualquier tipo de documento",
+          "C) Porque solamente Calidad puede consultar documentos",
+          "D) Porque permite guardar archivos sin necesidad de revisarlos"
+        ]
+      },
+      {
+        "id": "m3",
+        "prompt": "Tener un archivo guardado en la computadora significa automáticamente que es un documento controlado.",
+        "type": "boolean",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "m4",
+        "prompt": "Antes de utilizar un procedimiento, formato o instrucción de trabajo, ¿qué debemos verificar?",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Que el archivo tenga muchas páginas",
+          "B) Que esté guardado en nuestra computadora",
+          "C) Que sea la versión/revisión vigente y autorizada",
+          "D) Que haya sido creado recientemente"
+        ]
+      },
+      {
+        "id": "m5",
+        "prompt": "¿Qué puede suceder si se utiliza una versión obsoleta de un documento?",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) No sucede nada",
+          "B) Puede provocar que el proceso se realice con información incorrecta y genera un hallazgo durante una auditoría",
+          "C) Master Web elimina automáticamente el documento",
+          "D) El documento se actualiza solo"
+        ]
+      },
+      {
+        "id": "m6",
+        "prompt": "¿Qué tipo de documentos podemos consultar en Master Web?",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Procedimientos",
+          "B) Instrucciones de trabajo",
+          "C) Formatos y ayudas visuales",
+          "D) Todas las anteriores"
+        ]
+      },
+      {
+        "id": "m7",
+        "prompt": "Los documentos del SGC deben mantenerse controlados para evitar el uso no intencionado de información obsoleta.",
+        "type": "boolean",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "m8",
+        "prompt": "Si detectas que un formato o instrucción de trabajo necesita una modificación, ¿qué debes hacer?",
+        "type": "single",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "options": [
+          "A) Modificar directamente el archivo que encuentres en la computadora",
+          "B) Crear una nueva versión sin avisarle a nadie",
+          "C) Seguir el proceso establecido para solicitar, revisar y aprobar la modificación",
+          "D) Eliminar el documento anterior"
+        ]
+      },
+      {
+        "id": "m9",
+        "prompt": "Un operador tiene guardada en su computadora una instrucción de trabajo que utiliza desde hace varios meses. Al buscarla en Master Web encuentra una versión diferente y con una revisión más reciente. ¿Cuál debe utilizar? ¿Por qué?",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "section": "Caso práctico"
+      },
+      {
+        "id": "m10",
+        "prompt": "Durante una auditoría, el auditor solicita el formato que utiliza tu área para realizar una inspección. ¿Qué debes hacer para asegurarte de mostrarle la documentación correcta?",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "section": "Caso práctico"
+      }
+    ]
+  },
+  {
+    "id": "exam-6",
+    "title": "Vernier",
+    "description": "Tipos de medición, componentes, manejo y cuidado del vernier.",
+    "category": "Metrología",
+    "revision": "Rev. 00",
+    "source_file": "Evaluación Vernier.docx",
+    "duration": 20,
+    "pass_score": 80,
+    "instructions": "Lee cada pregunta y responde de acuerdo con lo aprendido en tu capacitación. Las preguntas y figuras provienen del documento de referencia.",
+    "questions": [
+      {
+        "id": "v1",
+        "prompt": "¿Qué es el vernier?",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "v2",
+        "prompt": "Menciona tres tipos de vernier.",
+        "type": "table",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "rows": [
+          "1",
+          "2",
+          "3"
+        ],
+        "columns": [
+          "Tipo de vernier"
+        ]
+      },
+      {
+        "id": "v3",
+        "prompt": "Coloca la letra correspondiente a cada tipo de medición.",
+        "type": "matching",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "rows": [
+          "La profundidad de un orificio o ranura.",
+          "El diámetro interno de un tubo o agujero.",
+          "El diámetro de un cilindro o el ancho de una pieza.",
+          "Diferencias de altura o niveles en piezas mecánicas."
+        ],
+        "options": [
+          "A. Medidas externas",
+          "B. Medidas internas",
+          "C. Medida de profundidad",
+          "D. Escalonamientos"
+        ]
+      },
+      {
+        "id": "v4",
+        "prompt": "Relaciona cada imagen con lo que mide.",
+        "type": "matching",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/vernier-mediciones.png",
+        "rows": [
+          "Imagen izquierda",
+          "Imagen central",
+          "Imagen derecha"
+        ],
+        "options": [
+          "Medidas internas",
+          "Medidas de pared",
+          "Exterior"
+        ]
+      },
+      {
+        "id": "v5",
+        "prompt": "Coloca en la imagen las partes del vernier.",
+        "type": "image_mark",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "image": "/assets/figures/vernier-partes.png",
+        "mark_labels": true,
+        "help": "Escribe el nombre de cada parte en la etiqueta y haz clic en su ubicación. Repite para las demás partes."
+      },
+      {
+        "id": "v6",
+        "prompt": "¿Cuántas escalas tiene un vernier? Menciónalas.",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "v7",
+        "prompt": "Menciona los pasos para el uso correcto del vernier.",
+        "type": "long_text",
+        "required": true,
+        "points": 1,
+        "correct": null
+      },
+      {
+        "id": "v8",
+        "prompt": "Escribe V (verdadero) o F (falso) para cada afirmación.",
+        "type": "matching",
+        "required": true,
+        "points": 1,
+        "correct": null,
+        "rows": [
+          "Se debe guardar el vernier en un estuche seco.",
+          "No se le debe aplicar aceites al vernier.",
+          "Si el vernier se guarda mojado o sucio, puede oxidarse.",
+          "El vernier se puede usar como compás.",
+          "No se debe forzar el deslizamiento.",
+          "Si se golpea o se deja caer, puede desajustarse o romperse."
+        ],
+        "options": [
+          "Verdadero",
+          "Falso"
+        ]
+      }
+    ]
+  }
+]

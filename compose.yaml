@@ -1,0 +1,13 @@
+name: mesa-capacitacion
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:55290:55290"
+    volumes:
+      - training_data:/app/private
+      - training_images:/app/assets/uploads
+volumes:
+  training_data:
+  training_images:

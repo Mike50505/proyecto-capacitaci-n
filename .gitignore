@@ -1,0 +1,8 @@
+/private/
+/source_extract/
+__pycache__/
+*.pyc
+/assets/uploads/
+/assets/exam-*/
+/outputs/
+.env

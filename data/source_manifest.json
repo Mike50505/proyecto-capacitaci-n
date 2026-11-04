@@ -1,0 +1,38 @@
+[
+  {
+    "id": "exam-1",
+    "file": "Cinta métrica Rev.03 actualizar.doc",
+    "sha256": "96fd94c43dcc24a7015b2d7aeab50c84294cdf12c0ab1bc71da81221b524f3c2",
+    "bytes": 3033600
+  },
+  {
+    "id": "exam-2",
+    "file": "Evaluacion de  Interpretacion Básica de Dibujo REV.01.doc",
+    "sha256": "dc858c43637e87b23891be05111c31de671faf97f86910b00225644b92785236",
+    "bytes": 1225728
+  },
+  {
+    "id": "exam-3",
+    "file": "Evaluacion Liberacion de 1ra pieza Rev.02.docx",
+    "sha256": "8d96f3fdb9d7d9b78abfc39852b1c25ac95111365e3c7962a7c522517d893e9c",
+    "bytes": 74214
+  },
+  {
+    "id": "exam-4",
+    "file": "Evaluación   Política y Objetivos de Calidad Rev 18 - copia.doc",
+    "sha256": "b7e6c81b29b146e68a6cf1ca6e3001e2b02741c78ec8888155de579658653413",
+    "bytes": 162304
+  },
+  {
+    "id": "exam-5",
+    "file": "Evaluación Master Web.doc",
+    "sha256": "2d257f9dc57fd97ceb2f415d2708e0bc81ec6aa5103bc526cc1589f922178d44",
+    "bytes": 112128
+  },
+  {
+    "id": "exam-6",
+    "file": "Evaluación Vernier.docx",
+    "sha256": "1579fa85c61f3ade5b105723526ad6ebbdb6f42f889f445dbfdb51da6e0efd4c",
+    "bytes": 507537
+  }
+]

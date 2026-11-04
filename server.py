@@ -46,6 +46,13 @@ def initialize():
             if owner:c.execute("UPDATE users SET role='administrator' WHERE id=?",(owner['id'],))
         if 'active' not in columns:c.execute('ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1')
         if 'full_name' not in columns:c.execute("ALTER TABLE users ADD COLUMN full_name TEXT NOT NULL DEFAULT ''")
+        attempt_columns={row['name'] for row in c.execute('PRAGMA table_info(attempts)')}
+        if 'payroll' not in attempt_columns:
+            c.execute("ALTER TABLE attempts ADD COLUMN payroll TEXT NOT NULL DEFAULT ''")
+            for r in c.execute('SELECT id,participant FROM attempts').fetchall():
+                c.execute('UPDATE attempts SET payroll=? WHERE id=?',(json.loads(r['participant']).get('payroll','').strip(),r['id']))
+        if 'archived' not in attempt_columns:c.execute('ALTER TABLE attempts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0')
+        c.execute('CREATE INDEX IF NOT EXISTS attempts_payroll ON attempts(payroll,exam_id,submitted_at)')
         if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
             password=secrets.token_urlsafe(15);salt=secrets.token_hex(16)
             c.execute('INSERT INTO users(username,password_hash,salt,role) VALUES(?,?,?,?)',('admin',password_hash(password,salt),salt,'administrator'))
@@ -167,7 +174,7 @@ def summary(exam,grading):
     return {'earned':round(earned,2),'maximum':maximum,'pending':pending,'score':score,'passed':score>=exam.get('pass_score',80) if score is not None else None}
 def attempt_row(r,detail=False):
     exam=json.loads(r['snapshot']);grading=json.loads(r['grading']);p=json.loads(r['participant'])
-    result={'id':r['id'],'exam_id':r['exam_id'],'exam_title':exam['title'],'version':r['version'],'participant':p,'status':r['status'],'started_at':r['started_at'],'submitted_at':r['submitted_at'],'reviewed_at':r['reviewed_at'],'summary':summary(exam,grading) if r['status']!='started' else None}
+    result={'id':r['id'],'exam_id':r['exam_id'],'exam_title':exam['title'],'version':r['version'],'participant':p,'archived':bool(r['archived']),'status':r['status'],'started_at':r['started_at'],'submitted_at':r['submitted_at'],'reviewed_at':r['reviewed_at'],'summary':summary(exam,grading) if r['status']!='started' else None}
     if detail:result.update(exam=exam,answers=json.loads(r['answers']),grading=grading)
     return result
 
@@ -260,12 +267,12 @@ class Handler(BaseHTTPRequestHandler):
             if len(name)<3 or kind not in ['employee','applicant']:raise ValueError('Completa tu nombre y tipo de participante.')
             if kind=='employee' and not payroll:raise ValueError('Indica tu número de nómina.')
             participant={'name':name,'type':kind,'payroll':payroll,'department':clean_text(p.get('department',''),150)}
-            token=secrets.token_urlsafe(32);cur=c.execute('INSERT INTO attempts(token_hash,exam_id,version,snapshot,participant,status,started_at) VALUES(?,?,?,?,?,?,?)',(digest(token),r['exam_id'],r['version'],r['content'],dump(participant),'started',now()));START_LIMITS[ip]=starts+[time.time()]
+            token=secrets.token_urlsafe(32);cur=c.execute('INSERT INTO attempts(token_hash,exam_id,version,snapshot,participant,status,started_at,payroll) VALUES(?,?,?,?,?,?,?,?)',(digest(token),r['exam_id'],r['version'],r['content'],dump(participant),'started',now(),payroll));START_LIMITS[ip]=starts+[time.time()]
             return self.send_json({'token':token,'id':cur.lastrowid},201)
         m=re.fullmatch(r'/api/attempts/([A-Za-z0-9_-]{30,80})(?:/(submit))?',path)
         if m:
             r=c.execute('SELECT * FROM attempts WHERE token_hash=?',(digest(m[1]),)).fetchone()
-            if not r:return self.send_json({'error':'Evaluación no encontrada.'},404)
+            if not r or r['archived']:return self.send_json({'error':'Evaluación no encontrada.'},404)
             if method=='GET':
                 result=attempt_row(r,True);result['exam']=public_exam(result['exam']);result.pop('grading',None);return self.send_json(result)
             if method in ['PUT','POST']:
@@ -346,14 +353,22 @@ class Handler(BaseHTTPRequestHandler):
                 if not ext:raise ValueError('Usa una imagen PNG o JPEG.')
                 folder=ROOT/'assets/uploads';folder.mkdir(exist_ok=True);name=secrets.token_hex(16)+ext;(folder/name).write_bytes(blob);return self.send_json({'url':'/assets/uploads/'+name})
             if path in ['/api/admin/results','/api/admin/dashboard','/api/admin/export'] and method=='GET':
-                rows=c.execute("SELECT * FROM attempts WHERE status<>'started' ORDER BY submitted_at DESC").fetchall();result=[]
+                archived=params.get('history',['active'])[0]=='archived'
+                rows=c.execute("SELECT * FROM attempts WHERE status<>'started' AND archived=? ORDER BY submitted_at DESC",(archived,)).fetchall();result=[]
+                counts={}
+                for row in rows:
+                    p=json.loads(row['participant']);key=(p['type'],row['payroll'].casefold(),row['exam_id'])
+                    if row['payroll']:counts[key]=counts.get(key,0)+1
                 for row in rows:
                     item=attempt_row(row)
+                    item['exam_attempts']=counts.get((item['participant']['type'],row['payroll'].casefold(),row['exam_id']),1)
+                    if params.get('payroll') and row['payroll'].casefold()!=params['payroll'][0].strip().casefold():continue
                     if params.get('exam') and item['exam_id']!=params['exam'][0]:continue
                     if params.get('type') and item['participant']['type']!=params['type'][0]:continue
                     if params.get('from') and item['submitted_at'][:10]<params['from'][0]:continue
                     if params.get('to') and item['submitted_at'][:10]>params['to'][0]:continue
                     result.append(item)
+                result.sort(key=lambda r:(not bool(r['participant']['payroll']),len(r['participant']['payroll']),r['participant']['payroll'].casefold()))
                 if path=='/api/admin/results':return self.send_json(result)
                 if path=='/api/admin/dashboard':
                     graded=[r for r in result if r['status']=='graded'];passed=sum(r['summary']['passed'] for r in graded);by_exam={};by_day={}
@@ -361,19 +376,40 @@ class Handler(BaseHTTPRequestHandler):
                         group=by_exam.setdefault(r['exam_id'],{'title':r['exam_title'],'count':0,'scores':[]});group['count']+=1
                         if r['status']=='graded':group['scores'].append(r['summary']['score'])
                         day=r['submitted_at'][:10];by_day[day]=by_day.get(day,0)+1
-                    return self.send_json({'total':len(result),'pending':sum(r['status']=='pending_review' for r in result),'average':round(sum(r['summary']['score'] for r in graded)/len(graded),1) if graded else None,'pass_rate':round(100*passed/len(graded),1) if graded else None,'graded':len(graded),'employees':sum(r['participant']['type']=='employee' for r in result),'applicants':sum(r['participant']['type']=='applicant' for r in result),'by_exam':[{'id':key,**value,'average':round(sum(value['scores'])/len(value['scores']),1) if value['scores'] else None} for key,value in by_exam.items()],'by_day':by_day,'recent':result[:6]})
-                output=io.StringIO();writer=csv.writer(output);writer.writerow(['Folio','Examen','Versión','Nombre','Participante','Nómina','Departamento','Enviado','Estado','Calificación','Aprobado'])
+                    people={}
+                    for item in result:
+                        p=item['participant']
+                        if p['type']!='employee' or not p['payroll']:continue
+                        person=people.setdefault(p['payroll'].casefold(),{'payroll':p['payroll'],'name':p['name'],'attempts':0,'exams':{},'scores':[],'latest':item['submitted_at']})
+                        person['attempts']+=1
+                        ex=person['exams'].setdefault(item['exam_id'],{'title':item['exam_title'],'attempts':0});ex['attempts']+=1
+                        if item['summary']['score'] is not None:person['scores'].append(item['summary']['score'])
+                    by_payroll=[{**p,'exams':list(p['exams'].values()),'average':round(sum(p['scores'])/len(p['scores']),1) if p['scores'] else None} for p in people.values()]
+                    by_payroll.sort(key=lambda p:(len(p['payroll']),p['payroll']))
+                    return self.send_json({'total':len(result),'pending':sum(r['status']=='pending_review' for r in result),'average':round(sum(r['summary']['score'] for r in graded)/len(graded),1) if graded else None,'pass_rate':round(100*passed/len(graded),1) if graded else None,'graded':len(graded),'employees':sum(r['participant']['type']=='employee' for r in result),'applicants':sum(r['participant']['type']=='applicant' for r in result),'by_payroll':by_payroll,'by_exam':[{'id':key,**value,'average':round(sum(value['scores'])/len(value['scores']),1) if value['scores'] else None} for key,value in by_exam.items()],'by_day':by_day,'recent':sorted(result,key=lambda r:r['submitted_at'],reverse=True)[:6]})
+                output=io.StringIO();writer=csv.writer(output);writer.writerow(['Folio','Examen','Versión','Nombre','Participante','Nómina','Departamento','Enviado','Estado','Calificación','Aprobado','Intentos del mismo examen','Eliminado del historial'])
                 def safe(v):
                     text=str(v if v is not None else '')
                     return "'"+text if text.lstrip().startswith(('=','+','-','@')) else text
-                for r in result:writer.writerow([safe(x) for x in [r['id'],r['exam_title'],r['version'],r['participant']['name'],r['participant']['type'],r['participant']['payroll'],r['participant']['department'],r['submitted_at'],r['status'],r['summary']['score'],'Sí' if r['summary']['passed'] else 'No' if r['summary']['passed'] is False else 'Pendiente']])
+                for r in result:writer.writerow([safe(x) for x in [r['id'],r['exam_title'],r['version'],r['participant']['name'],r['participant']['type'],r['participant']['payroll'],r['participant']['department'],r['submitted_at'],r['status'],r['summary']['score'],'Sí' if r['summary']['passed'] else 'No' if r['summary']['passed'] is False else 'Pendiente',r['exam_attempts'],'Sí' if r['archived'] else 'No']])
                 data=('\ufeff'+output.getvalue()).encode('utf-8');self.send_response(200);self.send_header('Content-Type','text/csv; charset=utf-8');self.send_header('Content-Disposition','attachment; filename="resultados-capacitacion.csv"');self.send_header('Content-Length',str(len(data)));self.security_headers();self.end_headers();self.wfile.write(data);return
+            m=re.fullmatch(r'/api/admin/results/(\d+)/history',path)
+            if m and method=='POST':
+                body=self.body();reason=clean_text(body.get('reason',''),2000);archived=body.get('archived')
+                if not reason or not isinstance(archived,bool):raise ValueError('Indica el motivo y la acción del historial.')
+                r=c.execute("SELECT * FROM attempts WHERE id=? AND status<>'started'",(m[1],)).fetchone()
+                if not r:return self.send_json({'error':'Resultado no encontrado.'},404)
+                if bool(r['archived'])!=archived:
+                    c.execute('UPDATE attempts SET archived=? WHERE id=?',(archived,r['id']))
+                    audit(c,uid,'attempt_archived' if archived else 'attempt_restored',r['id'],{'reason':reason,'payroll':r['payroll']})
+                return self.send_json({'ok':True,'archived':archived})
             m=re.fullmatch(r'/api/admin/results/(\d+)',path)
             if m:
                 r=c.execute('SELECT * FROM attempts WHERE id=? AND status<>?',(m[1],'started')).fetchone()
                 if not r:return self.send_json({'error':'Resultado no encontrado.'},404)
                 if method=='GET':return self.send_json(attempt_row(r,True))
                 if method=='POST':
+                    if r['archived']:raise ValueError('Restaura la evaluación antes de calificarla.')
                     body=self.body();exam=json.loads(r['snapshot']);grading=json.loads(r['grading'])
                     for q in exam['questions']:
                         g=body.get('grading',{}).get(q['id'])

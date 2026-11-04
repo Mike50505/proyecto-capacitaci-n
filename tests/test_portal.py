@@ -27,8 +27,8 @@ class PortalTests(unittest.TestCase):
     def new_exam(self,title='Test',questions=None):
         e={'title':title,'category':'Prueba','description':'Prueba temporal','instructions':'Responde','pass_score':80,'questions':questions or [{'id':'q1','prompt':'Elige una','type':'single','points':2,'required':True,'options':['A','B'],'correct':'B'},{'id':'q2','prompt':'Explica','type':'long_text','points':3,'required':True,'correct':None}]}
         code,data=self.request('/admin/exams','POST',e);self.assertEqual(code,201,data);eid=data['id'];self.assertEqual(self.request('/admin/exams/'+eid+'/publish','POST',{})[0],200);return eid,e
-    def start(self,eid,name='Participante sintético'):
-        code,data=self.request('/attempts','POST',{'exam_id':eid,'participant':{'name':name,'type':'employee','payroll':'TEST-001','department':'Pruebas'}});self.assertEqual(code,201,data);return data
+    def start(self,eid,name='Participante sintético',payroll='TEST-001'):
+        code,data=self.request('/attempts','POST',{'exam_id':eid,'participant':{'name':name,'type':'employee','payroll':payroll,'department':'Pruebas'}});self.assertEqual(code,201,data);return data
     def test_01_seed_and_no_public_keys(self):
         code,exams=self.request('/exams');self.assertEqual(code,200);self.assertEqual(len([x for x in exams if x['id'] in {f'exam-{i}' for i in range(1,7)}]),6)
         exam=self.request('/exams/exam-5')[1]['exam'];self.assertEqual(len(exam['questions']),10);self.assertTrue(all('correct' not in q and 'rubric' not in q for q in exam['questions']))
@@ -96,5 +96,25 @@ class PortalTests(unittest.TestCase):
     def test_owner_cannot_be_deactivated(self):
         self.login();owner=next(u for u in self.request('/admin/users')[1] if u['role']=='administrator')
         self.assertEqual(self.request('/admin/users/'+str(owner['id']),'PUT',{'active':False})[0],400)
+    def test_payroll_history_counts_archive_restore(self):
+        self.login();eid,_=self.new_exam('Seguimiento por nómina');submitted=[]
+        for payroll in ['00072','00072','72']:
+            a=self.start(eid,payroll=payroll);self.request('/attempts/'+a['token']+'/submit','POST',{'answers':{'q1':'B','q2':'Respuesta'}});submitted.append(a)
+        query='?exam='+eid+'&payroll=00072'
+        self.assertEqual(self.request('/admin/dashboard?exam='+eid)[1]['recent'][0]['id'],submitted[-1]['id'])
+        rows=self.request('/admin/results'+query)[1];self.assertEqual(len(rows),2);self.assertTrue(all(r['exam_attempts']==2 for r in rows))
+        stats=self.request('/admin/dashboard'+query)[1];self.assertEqual(stats['total'],2);self.assertEqual(stats['by_payroll'][0]['payroll'],'00072');self.assertEqual(stats['by_payroll'][0]['attempts'],2);self.assertEqual(stats['by_payroll'][0]['exams'][0]['attempts'],2)
+        path='/admin/results/'+str(submitted[0]['id'])+'/history'
+        self.assertEqual(self.request(path,'POST',{'archived':True,'reason':''})[0],400)
+        self.assertEqual(self.request(path,'POST',{'archived':True,'reason':'Registro de prueba duplicado'})[0],200)
+        self.assertEqual(self.request('/admin/dashboard'+query)[1]['total'],1)
+        hidden=self.request('/admin/results'+query+'&history=archived')[1];self.assertEqual(len(hidden),1);self.assertTrue(hidden[0]['archived'])
+        self.assertEqual(self.request('/attempts/'+submitted[0]['token'])[0],404)
+        self.assertEqual(self.request('/admin/results/'+str(submitted[0]['id']),'POST',{'grading':{}})[0],400)
+        self.request(path,'POST',{'archived':False,'reason':'Restauración de prueba'})
+        self.assertEqual(self.request('/admin/dashboard'+query)[1]['total'],2)
+        self.assertEqual(self.request('/attempts/'+submitted[0]['token'])[0],200)
+        exported=self.request('/admin/export'+query)[1];self.assertIn('00072',exported);self.assertIn('Intentos del mismo examen',exported)
+        with server.connect() as c:self.assertEqual(c.execute('SELECT count(*) FROM audit WHERE object_id=? AND action IN (?,?)',(str(submitted[0]['id']),'attempt_archived','attempt_restored')).fetchone()[0],2)
 
 if __name__=='__main__':unittest.main()

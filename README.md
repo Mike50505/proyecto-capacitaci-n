@@ -24,6 +24,10 @@ Los documentos no contienen una clave oficial: todas las preguntas iniciales req
 
 ## Administración
 
+Dashboard y Resultados permiten buscar por nómina exacta, manteniendo ceros iniciales. Los registros anteriores se incorporan automáticamente al índice por nómina al iniciar. El dashboard muestra exámenes distintos, total de intentos, intentos por examen, promedio calificado y última presentación por empleado. Los filtros de examen, participante y fechas se combinan con la nómina; el CSV aplica los mismos filtros. Resultados se agrupa por nómina y conserva las presentaciones más recientes primero dentro de cada nómina. El conteo de intentos de un mismo examen incluye todos los registros de esa nómina en el estado de historial seleccionado, aunque las fechas filtren las filas visibles.
+
+Administración y encargados pueden **Eliminar del historial** evaluaciones presentadas con un motivo obligatorio. Esta acción es recuperable y queda auditada; conserva las respuestas y calificaciones. Las retiradas se excluyen de dashboard, resultados y CSV vigentes. Usa **Historial → Eliminados del historial** para consultarlas y restaurarlas. La edición de calificaciones requiere restaurarlas primero. No se eliminan plantillas de examen al retirar un intento.
+
 El apartado **Usuarios** está disponible únicamente para la cuenta administradora. Permite crear encargados de capacitación, editar sus nombres, activar/desactivar el acceso y restablecer contraseñas. Los encargados tienen las mismas funciones de exámenes, resultados, revisión y dashboards, excepto administrar cuentas. Desactivar una cuenta cierra sus sesiones y conserva sus registros. El administrador permanece activo; los permisos se comprueban en el servidor.
 
 - Dashboard con participación, pendientes, promedio y aprobación solo de evaluaciones calificadas; filtros por examen, participante y fechas.

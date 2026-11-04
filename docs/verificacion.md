@@ -1,5 +1,7 @@
 # Verificación de MESA Formación
 
+Corrección del formulario Usuarios: el control oculto `name="id"` puede ocultar la propiedad `form.id` del navegador. El envío identifica ahora el formulario mediante `getAttribute('id')`. La prueba de regresión simula esa colisión y comprueba que se envía POST, se conserva el nombre de usuario y se muestra la cuenta creada. `node tests/check_render.cjs` y `node --check static/app.js`: correctos. La cuenta usada en la prueba es sintética y no se crea en operación.
+
 Actualización 4 de noviembre de 2026: 14 pruebas funcionales correctas. Se añadió gestión de usuarios exclusiva del administrador y se comprobó que los encargados pueden crear/publicar exámenes y consultar dashboards, pero reciben 403 al listar, crear o modificar cuentas. La desactivación invalida las sesiones y la cuenta administradora no puede desactivarse. El renderizador también comprueba que el menú Usuarios solo aparece con el permiso correspondiente.
 
 Fecha: 3 de noviembre de 2026.

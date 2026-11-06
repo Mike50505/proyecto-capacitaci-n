@@ -1,12 +1,13 @@
 # MESA Formación
 
-Portal de evaluaciones para empleados y postulantes. Aplicación local con Python 3.11 o posterior, SQLite y HTML/CSS/JavaScript; no requiere instalar paquetes para ejecutarse.
+Portal de evaluaciones para empleados y postulantes. Aplicación local con Python 3.11 o posterior, SQLite y HTML/CSS/JavaScript; utiliza ReportLab para exportar evaluaciones a PDF.
 
 ## Inicio
 
 Desde esta carpeta:
 
 ```powershell
+python -m pip install -r requirements.txt
 python server.py
 ```
 
@@ -66,3 +67,17 @@ node --check static/app.js
 ```
 
 Las pruebas usan una base temporal y participantes sintéticos. No se cargan resultados de ejemplo en la base operativa. Las utilidades de `scripts/extract_sources.py`, `convert_word.ps1`, `render_sources.py` y `prepare_exams.py` documentan la extracción; los paquetes de lectura PDF solo se usan para preparar los documentos y no son dependencias de la aplicación.
+
+## Exportar evaluaciones a PDF
+
+Cada resultado y su detalle permiten descargar preguntas, respuestas, figuras, marcas y calificaciones guardadas. La biblioteca permite descargar el examen sin respuestas. El selector nativo de archivo y carpeta se usa cuando el navegador ofrece `showSaveFilePicker` en un contexto seguro (HTTPS o localhost). En otros casos se usa la descarga habitual; para elegir carpeta hay que activar la opcion del navegador de preguntar donde guardar cada archivo. Los PDFs de resultados requieren iniciar sesion como administrador o encargado y utilizan la version del examen presentada por el participante. Los cambios de revision deben guardarse antes de exportar.
+
+## Identidad del documento
+
+Editar examen permite modificar el texto superior, la revision y las tres partes del pie de pagina. El logo oficial MESA se encuentra en `static/branding/mesa.svg`. La vista previa, el examen presentado y todas las paginas de los PDF muestran estos elementos. Guarda y publica para aplicarlos a nuevas presentaciones; los intentos anteriores conservan la identidad del documento de su version. Los seis examenes iniciales toman sus valores predeterminados de los documentos fuente cuando estan disponibles.
+
+## Revision por respuesta
+
+El detalle administrativo identifica respuestas correctas, incorrectas, parciales y pendientes con etiquetas e indicadores de color. Con una clave configurada en la version presentada muestra la respuesta correcta y el desglose por relacion o celda. Las preguntas sin clave conservan la revision manual y no inventan soluciones. Las claves y el desglose no se entregan al portal publico.
+
+El PDF usa una presentacion para pantalla: fondo suave, tarjetas, opciones visuales y colores de revision como el portal. Los resultados incluyen el desglose por relacion o celda cuando existe una clave en la version presentada. Las respuestas extensas se paginan sin recortar contenido.

@@ -1,6 +1,8 @@
 FROM python:3.13-slim
 WORKDIR /app
-COPY server.py ./
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY server.py evaluation_pdf.py exam_document.py answer_review.py ./
 COPY static ./static
 COPY data ./data
 COPY assets/figures ./assets/figures

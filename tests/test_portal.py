@@ -19,7 +19,9 @@ class PortalTests(unittest.TestCase):
         request=urllib.request.Request(self.base+'/api'+path,data=json.dumps(data).encode() if data is not None else None,method=method,headers=headers)
         try:
             with self.client.open(request) as response:
-                content=response.read().decode('utf-8-sig')
+                raw=response.read()
+                if response.headers.get('Content-Type')=='application/pdf':return response.status,raw
+                content=raw.decode('utf-8-sig')
                 return response.status,json.loads(content) if response.headers.get('Content-Type','').startswith('application/json') else content
         except urllib.error.HTTPError as exc:return exc.code,json.loads(exc.read())
     def login(self):
@@ -34,6 +36,117 @@ class PortalTests(unittest.TestCase):
         exam=self.request('/exams/exam-5')[1]['exam'];self.assertEqual(len(exam['questions']),10);self.assertTrue(all('correct' not in q and 'rubric' not in q for q in exam['questions']))
     def test_admin_requires_session_and_csrf(self):
         self.assertEqual(self.request('/admin/results')[0],403);self.login();self.assertEqual(self.request('/admin/exams','POST',{},csrf=False)[0],403)
+    def test_private_per_answer_review_uses_saved_key(self):
+        self.login()
+        questions=[
+            {'id':'choice','type':'single','prompt':'Elige','points':1,'required':True,'options':['A','B'],'correct':'B'},
+            {'id':'match','type':'matching','prompt':'Relaciona','points':1,'required':True,'rows':['Uno','Dos','Tres','Cuatro'],'options':['1','2','3','4'],'correct':{'Uno':'1','Dos':'2','Tres':'3','Cuatro':'4'}},
+            {'id':'number','type':'number','prompt':'Número','points':1,'required':True,'correct':'10','tolerance':0.5},
+        ]
+        eid,exam=self.new_exam('Revisión por respuesta',questions)
+        attempt=self.start(eid);answers={'choice':'A','match':{'Uno':'1','Dos':'2','Tres':'3','Cuatro':'1'},'number':'10.4'}
+        self.request('/attempts/'+attempt['token']+'/submit','POST',{'answers':answers})
+        detail=self.request('/admin/results/'+str(attempt['id']))[1]
+        review=detail['answer_review']
+        self.assertEqual(review['choice']['status'],'incorrect');self.assertEqual(review['choice']['correct_answer'],'B')
+        self.assertEqual(review['match']['status'],'partial');self.assertEqual(detail['grading']['match']['points'],0.75)
+        self.assertEqual(review['match']['matched'],3);self.assertEqual(review['match']['total'],4)
+        self.assertFalse(review['match']['items'][-1]['correct']);self.assertEqual(review['match']['items'][-1]['correct_answer'],'4')
+        self.assertTrue(review['number']['answer_correct'])
+        exam['questions'][0]['correct']='A';self.request('/admin/exams/'+eid,'PUT',exam);self.request('/admin/exams/'+eid+'/publish','POST',{})
+        self.assertEqual(self.request('/admin/results/'+str(attempt['id']))[1]['answer_review']['choice']['correct_answer'],'B')
+        public=self.request('/attempts/'+attempt['token'])[1]
+        self.assertNotIn('answer_review',public);self.assertTrue(all('correct' not in q for q in public['exam']['questions']))
+    def test_review_tables_multiple_and_missing_key(self):
+        from answer_review import question_review
+        table={'type':'table','points':1,'rows':['Medida'],'columns':['A','B'],'correct':{'0:0':'12 mm','0:1':'30'}}
+        review=question_review(table,{'0:0':' 12 MM ','0:1':'31'},{'points':0.5})
+        self.assertEqual(review['matched'],1);self.assertEqual(review['items'][1]['label'],'Medida / B')
+        self.assertEqual(review['items'][1]['correct_answer'],'30')
+        multiple={'type':'multiple','points':1,'options':['A','B','C'],'correct':['A','B']}
+        review=question_review(multiple,['A','C'],{'points':0})
+        self.assertTrue(review['items'][0]['selected']);self.assertTrue(review['items'][0]['correct'])
+        self.assertFalse(review['items'][1]['selected']);self.assertTrue(review['items'][1]['correct'])
+        self.assertTrue(review['items'][2]['selected']);self.assertFalse(review['items'][2]['correct'])
+        manual=question_review({'type':'long_text','points':1},'Respuesta',{'points':0})
+        self.assertFalse(manual['has_key']);self.assertEqual(manual['status'],'incorrect');self.assertIsNone(manual['correct_answer'])
+
+    def test_screen_pdf_long_answers_and_feedback(self):
+        from evaluation_pdf import evaluation_pdf
+        from pypdf import PdfReader
+        from io import BytesIO
+        exam={'title':'PDF digital','questions':[{'id':'long','type':'long_text','prompt':'Explica','points':1},{'id':'match','type':'matching','prompt':'Relaciona','points':1,'rows':['Uno','Dos'],'options':['1','2'],'correct':{'Uno':'1','Dos':'2'}}]}
+        answers={'long':'Respuesta extensa para validar la lectura. '*350,'match':{'Uno':'1','Dos':'1'}}
+        grading={'long':{'points':1},'match':{'points':0.5}}
+        result={'id':1,'version':1,'participant':{'name':'Persona de prueba','payroll':'00072','type':'employee','department':'Pruebas'},'summary':server.summary(exam,grading),'answers':answers,'grading':grading}
+        pdf=evaluation_pdf(exam,server.ROOT,result)
+        reader=PdfReader(BytesIO(pdf));self.assertGreater(len(reader.pages),2)
+        text=' '.join(' '.join(page.extract_text() for page in reader.pages).split())
+        self.assertEqual(text.count('extensa'),350);self.assertEqual(text.count('validar'),350);self.assertEqual(text.count('lectura.'),350)
+        self.assertIn('1 de 2 respuestas correctas',text);self.assertIn('Incorrecta',text);self.assertIn('Respuesta correcta',text)
+
+    def test_document_text_public_version_and_pdf(self):
+        from pypdf import PdfReader
+        from io import BytesIO
+        self.login();eid,exam=self.new_exam('Documento con identidad')
+        original={'top_text':'ENCABEZADO ORIGINAL','revision_text':'Revisión 07','footer_left':'Fecha de elaboración 06/11/2026','footer_center':'Manufacturas de prueba','footer_right':'FO-PRUEBA-07'}
+        exam['document']=original
+        self.assertEqual(self.request('/admin/exams/'+eid,'PUT',exam)[0],200)
+        self.request('/admin/exams/'+eid+'/publish','POST',{})
+        public=self.request('/exams/'+eid)[1]['exam'];self.assertEqual(public['document'],original)
+        attempt=self.start(eid)
+        self.request('/attempts/'+attempt['token']+'/submit','POST',{'answers':{'q1':'B','q2':'Respuesta'}})
+        exam['document']={**original,'top_text':'ENCABEZADO CAMBIADO'}
+        self.request('/admin/exams/'+eid,'PUT',exam);self.request('/admin/exams/'+eid+'/publish','POST',{})
+        self.assertEqual(self.request('/attempts/'+attempt['token'])[1]['exam']['document'],original)
+        code,pdf=self.request('/admin/results/'+str(attempt['id'])+'/pdf');self.assertEqual(code,200)
+        for page in PdfReader(BytesIO(pdf)).pages:
+            text=page.extract_text()
+            for value in original.values():self.assertIn(value,text)
+            self.assertNotIn('ENCABEZADO CAMBIADO',text)
+        bad={**exam,'document':{'top_text':123}}
+        self.assertEqual(self.request('/admin/exams/'+eid,'PUT',bad)[0],400)
+        seeded=self.request('/exams/exam-2')[1]['exam']['document']
+        self.assertIn('09/07/2025',seeded['footer_left']);self.assertEqual(seeded['footer_right'],'FO-RH-14')
+
+    def test_missing_format_footer_uses_reference(self):
+        from exam_document import document_settings
+        from evaluation_pdf import evaluation_pdf
+        from pypdf import PdfReader
+        from io import BytesIO
+        for exam in ({'id':'exam-new'},{'id':'exam-new','document':{'footer_left':'','footer_right':' '}}):
+            settings=document_settings(exam)
+            self.assertEqual(settings['footer_left'],'Fecha de Elaboración 09/07/2025, Rev. 01')
+            self.assertEqual(settings['footer_right'],'FO-RH-14')
+        self.assertEqual(document_settings({'id':'exam-1'})['footer_right'],'FO-RH-13')
+        self.login();eid,exam=self.new_exam('Formato de prueba')
+        document=self.request('/exams/'+eid)[1]['exam']['document']
+        self.assertIn('09/07/2025',document['footer_left']);self.assertEqual(document['footer_right'],'FO-RH-14')
+        code,pdf=self.request('/admin/exams/'+eid+'/pdf');self.assertEqual(code,200)
+        for page in PdfReader(BytesIO(pdf)).pages:
+            text=page.extract_text();self.assertIn('09/07/2025',text);self.assertIn('FO-RH-14',text)
+    def test_pdf_permissions_snapshot_answers_and_grades(self):
+        from pypdf import PdfReader
+        from io import BytesIO
+        self.assertEqual(self.request('/admin/results/1/pdf')[0],403)
+        self.login();eid,exam=self.new_exam('Evaluación con acentos')
+        attempt=self.start(eid,'Persona de prueba','00072')
+        endpoint='/admin/results/'+str(attempt['id'])+'/pdf'
+        self.assertEqual(self.request(endpoint)[0],404)
+        self.request('/attempts/'+attempt['token']+'/submit','POST',{'answers':{'q1':'B','q2':'Respuesta original con ñ'}})
+        code,data=self.request(endpoint);self.assertEqual(code,200);self.assertTrue(data.startswith(b'%PDF-'))
+        text='\n'.join(page.extract_text() for page in PdfReader(BytesIO(data)).pages)
+        for value in ['Evaluación con acentos','00072','Persona de prueba','Respuesta original con ñ','Pendiente de revisión']:
+            self.assertIn(value,text)
+        self.request('/admin/results/'+str(attempt['id']),'POST',{'grading':{'q2':{'points':3,'feedback':'Revisión completa'}}})
+        exam['title']='Nombre cambiado después';self.request('/admin/exams/'+eid,'PUT',exam)
+        code,data=self.request(endpoint)
+        text='\n'.join(page.extract_text() for page in PdfReader(BytesIO(data)).pages)
+        self.assertIn('Evaluación con acentos',text);self.assertNotIn('Nombre cambiado después',text)
+        self.assertIn('100.0%',text);self.assertIn('Revisión completa',text)
+        code,blank=self.request('/admin/exams/'+eid+'/pdf');self.assertEqual(code,200)
+        blank_text='\n'.join(page.extract_text() for page in PdfReader(BytesIO(blank)).pages)
+        self.assertIn('Nombre cambiado después',blank_text);self.assertNotIn('Respuesta original con ñ',blank_text)
     def test_submit_review_dashboard_and_idempotence(self):
         self.login();eid,e=self.new_exam();attempt=self.start(eid);token=attempt['token'];answers={'q1':'B','q2':'Respuesta de prueba'}
         self.assertEqual(self.request('/attempts/'+token,'PUT',{'answers':answers})[0],200)

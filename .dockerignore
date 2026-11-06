@@ -6,3 +6,7 @@ __pycache__
 *.doc
 *.docx
 assets/exam-*
+
+.venv/
+tmp/
+output/

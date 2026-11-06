@@ -1,4 +1,4 @@
-"""MESA Formación. Python 3.11+, SQLite; no third-party runtime packages."""
+"""MESA Formación. Python 3.11+, SQLite and ReportLab for PDF exports."""
 import argparse, base64, csv, hashlib, hmac, io, json, math, mimetypes, os, re, secrets, sqlite3, time, unicodedata
 from datetime import datetime, timezone
 from contextlib import contextmanager
@@ -7,6 +7,9 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+from evaluation_pdf import evaluation_pdf
+from exam_document import document_settings
+from answer_review import answer_review, normalize
 
 ROOT=Path(__file__).resolve().parent
 PRIVATE=Path(os.environ.get('TRAINING_DATA_DIR',ROOT/'private'))
@@ -70,6 +73,7 @@ def clean_text(v,limit=10000):
     if not isinstance(v,str) or len(v)>limit:raise ValueError('Texto inválido o demasiado largo.')
     return v.strip()
 def validate_exam(e):
+    e['document']=document_settings(e)
     e['title']=clean_text(e.get('title',''),180)
     for key,limit in [('description',3000),('category',100),('instructions',5000)]:e[key]=clean_text(e.get(key,''),limit)
     if not e['title']:raise ValueError('El examen necesita un título.')
@@ -109,6 +113,7 @@ def validate_exam(e):
 
 def public_exam(e):
     result=json.loads(dump(e))
+    result['document']=document_settings(result)
     for q in result['questions']:
         for key in ['correct','rubric','tolerance']:q.pop(key,None)
     return result
@@ -153,7 +158,6 @@ def validate_answers(exam,answers,submit=False):
             if incomplete:missing.append(q['id'])
     if missing:raise ValueError('Faltan respuestas obligatorias. Revisa las preguntas marcadas.')
 
-def normalize(v):return ' '.join(unicodedata.normalize('NFKC',str(v)).casefold().split())
 def autograde(exam,answers):
     result={}
     for q in exam['questions']:
@@ -175,11 +179,18 @@ def summary(exam,grading):
 def attempt_row(r,detail=False):
     exam=json.loads(r['snapshot']);grading=json.loads(r['grading']);p=json.loads(r['participant'])
     result={'id':r['id'],'exam_id':r['exam_id'],'exam_title':exam['title'],'version':r['version'],'participant':p,'archived':bool(r['archived']),'status':r['status'],'started_at':r['started_at'],'submitted_at':r['submitted_at'],'reviewed_at':r['reviewed_at'],'summary':summary(exam,grading) if r['status']!='started' else None}
-    if detail:result.update(exam=exam,answers=json.loads(r['answers']),grading=grading)
+    if detail:result.update(exam={**exam,'document':document_settings(exam)},answers=json.loads(r['answers']),grading=grading)
     return result
 
 class Handler(BaseHTTPRequestHandler):
     server_version='MesaTraining/1.0'
+    def send_pdf(self, data, filename):
+        self.send_response(200)
+        self.send_header('Content-Type','application/pdf')
+        self.send_header('Content-Disposition',f'attachment; filename="{filename}"')
+        self.send_header('Content-Length',str(len(data)))
+        self.send_header('Cache-Control','no-store')
+        self.security_headers();self.end_headers();self.wfile.write(data)
     def log_message(self,fmt,*args):print('%s %s'%(self.log_date_time_string(),fmt%args))
     def send_json(self,value,status=200,cookie=None):
         data=dump(value).encode();self.send_response(status);self.send_header('Content-Type','application/json; charset=utf-8');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store')
@@ -288,6 +299,17 @@ class Handler(BaseHTTPRequestHandler):
                 c.execute('UPDATE attempts SET answers=? WHERE id=?',(dump(answers),r['id']));return self.send_json({'saved':True})
         if path.startswith('/api/admin/'):
             s=self.require_admin(c,method!='GET');uid=s['user_id']
+            pdf_match=re.fullmatch(r'/api/admin/(results|exams)/([a-z0-9-]+)/pdf',path)
+            if pdf_match and method=='GET':
+                kind,ident=pdf_match.groups()
+                if kind=='results':
+                    row=c.execute("SELECT * FROM attempts WHERE id=? AND status<>'started'",(ident,)).fetchone()
+                    if not row:return self.send_json({'error':'Resultado no encontrado.'},404)
+                    result=attempt_row(row,True)
+                    return self.send_pdf(evaluation_pdf(result['exam'],ROOT,result),f'evaluacion-MESA-{result["id"]:05d}.pdf')
+                row=c.execute('SELECT draft FROM exams WHERE id=?',(ident,)).fetchone()
+                if not row:return self.send_json({'error':'Examen no encontrado.'},404)
+                return self.send_pdf(evaluation_pdf(json.loads(row['draft']),ROOT),f'evaluacion-{ident}.pdf')
             if path=='/api/admin/users' or re.fullmatch(r'/api/admin/users/\d+',path):
                 if s['role']!='administrator':raise PermissionError('Solo el administrador puede gestionar usuarios.')
                 if path=='/api/admin/users' and method=='GET':
@@ -336,7 +358,7 @@ class Handler(BaseHTTPRequestHandler):
             if m:
                 r=c.execute('SELECT * FROM exams WHERE id=?',(m[1],)).fetchone()
                 if not r:return self.send_json({'error':'Examen no encontrado.'},404)
-                if method=='GET':return self.send_json({'exam':json.loads(r['draft']),'published_version':r['published_version'],'archived':bool(r['archived'])})
+                if method=='GET':return self.send_json({'exam':{**json.loads(r['draft']),'document':document_settings(json.loads(r['draft']))},'published_version':r['published_version'],'archived':bool(r['archived'])})
                 if m[2]=='publish' and method=='POST':
                     e=validate_exam(json.loads(r['draft']));version=c.execute('SELECT COALESCE(MAX(version),0)+1 FROM versions WHERE exam_id=?',(m[1],)).fetchone()[0]
                     c.execute('INSERT INTO versions VALUES(?,?,?,?)',(m[1],version,dump(e),now()));c.execute('UPDATE exams SET published_version=?,archived=0,updated_at=? WHERE id=?',(version,now(),m[1]));audit(c,uid,'exam_published',m[1],{'version':version});return self.send_json({'version':version})
@@ -407,7 +429,10 @@ class Handler(BaseHTTPRequestHandler):
             if m:
                 r=c.execute('SELECT * FROM attempts WHERE id=? AND status<>?',(m[1],'started')).fetchone()
                 if not r:return self.send_json({'error':'Resultado no encontrado.'},404)
-                if method=='GET':return self.send_json(attempt_row(r,True))
+                if method=='GET':
+                    detail=attempt_row(r,True)
+                    detail['answer_review']=answer_review(detail['exam'],detail['answers'],detail['grading'])
+                    return self.send_json(detail)
                 if method=='POST':
                     if r['archived']:raise ValueError('Restaura la evaluación antes de calificarla.')
                     body=self.body();exam=json.loads(r['snapshot']);grading=json.loads(r['grading'])

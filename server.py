@@ -248,6 +248,22 @@ class Handler(BaseHTTPRequestHandler):
         if not any(target.is_relative_to(ROOT/folder) for folder in ['static','assets/figures','assets/uploads']) or not target.is_file():self.send_error(404);return
         data=target.read_bytes();self.send_response(200);self.send_header('Content-Type',mimetypes.guess_type(target.name)[0] or 'application/octet-stream');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-cache');self.security_headers();self.end_headers();self.wfile.write(data)
     def api(self,c,method,path,params):
+        if path=='/api/portal-qr' and method=='GET':
+            from reportlab.graphics.barcode.qr import QrCodeWidget
+            from reportlab.graphics.shapes import Drawing, Rect
+            from reportlab.graphics import renderSVG
+            from reportlab.lib.colors import white
+            url=params.get('url',[''])[0]
+            parsed=urlparse(url)
+            if len(url)>2000 or parsed.scheme not in ('http','https') or parsed.netloc!=self.headers.get('Host') or parsed.username or parsed.password:
+                raise ValueError('La dirección debe corresponder a este portal.')
+            qr=QrCodeWidget(url,barLevel='M',barBorder=4)
+            x,y,right,top=qr.getBounds();size=320
+            drawing=Drawing(size,size,transform=[size/(right-x),0,0,size/(top-y),0,0])
+            drawing.add(Rect(x,y,right-x,top-y,fillColor=white,strokeColor=None))
+            drawing.add(qr)
+            data=renderSVG.drawToString(drawing).encode('utf-8')
+            self.send_response(200);self.send_header('Content-Type','image/svg+xml');self.send_header('Content-Length',str(len(data)));self.send_header('Cache-Control','no-store');self.security_headers();self.end_headers();self.wfile.write(data);return
         if path=='/api/session' and method=='GET':
             s=self.session(c);return self.send_json({'authenticated':bool(s),'username':s['username'] if s else None,'csrf':s['csrf'] if s else None,'manage_users':bool(s and s['role']=='administrator')})
         if path=='/api/login' and method=='POST':

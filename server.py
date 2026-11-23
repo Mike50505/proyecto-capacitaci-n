@@ -14,7 +14,7 @@ from answer_review import answer_review, normalize
 ROOT=Path(__file__).resolve().parent
 PRIVATE=Path(os.environ.get('TRAINING_DATA_DIR',ROOT/'private'))
 DB=PRIVATE/'capacitacion.sqlite3'
-TYPES={'single','multiple','boolean','text','long_text','number','matching','table','image_mark'}
+TYPES={'single','multiple','boolean','text','long_text','number','matching','table','image_mark','ordering'}
 LOGIN_FAILURES={}
 START_LIMITS={}
 
@@ -97,7 +97,7 @@ def validate_exam(e):
                 if not isinstance(q[key],list) or len(q[key])>60:raise ValueError('Lista de opciones inválida.')
                 q[key]=[clean_text(v,1000) for v in q[key]]
                 if any(not v for v in q[key]) or len(set(q[key]))!=len(q[key]):raise ValueError('Las opciones deben ser únicas y tener texto.')
-        if q['type'] in ('single','multiple','matching') and len(q.get('options',[]))<2:raise ValueError('Agrega al menos dos opciones.')
+        if q['type'] in ('single','multiple','matching','ordering') and len(q.get('options',[]))<2:raise ValueError('Agrega al menos dos opciones o pasos.')
         if q['type'] in ('matching','table') and not q.get('rows'):raise ValueError('Agrega las filas de la pregunta.')
         if q['type']=='table' and not q.get('columns'):raise ValueError('Agrega las columnas de respuesta.')
         if q.get('image') and not re.fullmatch(r'/assets/[a-zA-Z0-9_./-]+',q['image']):raise ValueError('La imagen debe pertenecer al proyecto.')
@@ -105,6 +105,7 @@ def validate_exam(e):
         if q.get('correct') is not None:
             if empty(q['correct']):raise ValueError('Completa la clave de respuesta o desactiva la calificación automática.')
             validate_answer(q,q['correct'])
+            if q['type']=='ordering' and not complete_ordering(q,q['correct']):raise ValueError('Asigna a cada paso una posición distinta, del 1 al total de pasos.')
             if q['type'] in ['matching','table']:
                 expected=set(q['rows']) if q['type']=='matching' else {f'{i}:{j}' for i in range(len(q['rows'])) for j in range(len(q['columns']))}
                 if set(q['correct'])!=expected or any(empty(x) for x in q['correct'].values()):raise ValueError('Completa toda la clave de la tabla o relación.')
@@ -119,7 +120,20 @@ def public_exam(e):
     return result
 
 def empty(v):return v is None or v=='' or v==[] or v=={} or (isinstance(v,dict) and all(empty(x) for x in v.values()))
+def complete_ordering(q,value):
+    size=len(q['options'])
+    return isinstance(value,dict) and set(value)=={str(i) for i in range(size)} and set(value.values())=={str(i) for i in range(1,size+1)}
+
 def validate_answer(q,v):
+    if q['type']=='ordering':
+        if v is None or v=='' or v=={}:return
+        keys={str(i) for i in range(len(q['options']))}
+        positions={str(i) for i in range(1,len(q['options'])+1)}
+        if not isinstance(v,dict) or set(v)-keys:raise ValueError('La secuencia contiene un paso desconocido.')
+        if any(not isinstance(x,str) or (x and x not in positions) for x in v.values()):raise ValueError('Elige una posición válida para cada paso.')
+        chosen=[x for x in v.values() if x]
+        if len(set(chosen))!=len(chosen):raise ValueError('No repitas números en la secuencia. Usa cada posición una sola vez.')
+        return
     if empty(v):return
     typ=q['type']
     if typ in ['text','long_text']:clean_text(v,20000)
@@ -150,11 +164,13 @@ def validate_answers(exam,answers,submit=False):
     missing=[]
     for q in exam['questions']:
         v=answers.get(q['id']);validate_answer(q,v)
+        if submit and q['type']=='ordering' and not empty(v) and not complete_ordering(q,v):raise ValueError('Completa el orden de todos los pasos antes de enviar.')
         if submit and q.get('required',True):
             incomplete=empty(v)
             if q['type'] in ['matching','table']:
                 expected=len(q['rows'])*(len(q['columns']) if q['type']=='table' else 1)
                 incomplete=not isinstance(v,dict) or len(v)!=expected or any(empty(x) for x in v.values())
+            if q['type']=='ordering':incomplete=not complete_ordering(q,v)
             if incomplete:missing.append(q['id'])
     if missing:raise ValueError('Faltan respuestas obligatorias. Revisa las preguntas marcadas.')
 
@@ -165,7 +181,8 @@ def autograde(exam,answers):
         if empty(v):result[q['id']]={'points':0,'mode':'auto','feedback':''};continue
         if key is None or q['type']=='image_mark':result[q['id']]={'points':None,'mode':'manual','feedback':''};continue
         typ=q['type']
-        if typ=='multiple':ratio=float(set(v)==set(key))
+        if typ=='ordering':ratio=float(complete_ordering(q,v) and v==key)
+        elif typ=='multiple':ratio=float(set(v)==set(key))
         elif typ=='number':ratio=float(abs(float(v)-float(key))<=float(q.get('tolerance',0)))
         elif typ in ['matching','table']:
             ratio=sum(normalize(v.get(k,''))==normalize(value) for k,value in key.items())/max(len(key),1)

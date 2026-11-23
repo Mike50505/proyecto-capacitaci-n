@@ -16,10 +16,12 @@ def question_review(question, answer, grade):
     result = {'status': status, 'has_key': has_key, 'correct_answer': key if has_key else None, 'items': []}
     if not has_key:
         return result
-    if typ in ('matching', 'table'):
+    if typ in ('matching', 'table', 'ordering'):
         values = answer if isinstance(answer, dict) else {}
         for item_key, correct in key.items():
-            if typ == 'matching':
+            if typ == 'ordering':
+                label = question['options'][int(item_key)]
+            elif typ == 'matching':
                 label = item_key
             else:
                 row, column = map(int, item_key.split(':'))

@@ -33,12 +33,16 @@ El apartado **Usuarios** está disponible únicamente para la cuenta administrad
 
 - Dashboard con participación, pendientes, promedio y aprobación solo de evaluaciones calificadas; filtros por examen, participante y fechas.
 - Exámenes con borradores, publicación versionada, archivo/restauración y enlaces para compartir.
-- Nueve tipos: opción única, selección múltiple, verdadero/falso, respuesta corta/larga, número, relaciones, tablas e imagen con marcas.
+- Diez tipos: opción única, selección múltiple, verdadero/falso, respuesta corta/larga, número, relaciones, tablas, imagen con marcas y ordenar pasos por número.
 - Clave y tolerancia para calificación automática; revisión manual con puntos y observaciones por pregunta.
 - Carga de imágenes PNG/JPEG de hasta 5 MB.
 - Resultados individuales, impresión y CSV con protección contra fórmulas de hoja de cálculo.
 
 Editar un examen no modifica intentos anteriores: cada intento conserva una copia de la versión y su criterio aprobatorio. Las claves nunca se incluyen en las respuestas públicas de la API. La administración usa sesiones de ocho horas, contraseña con scrypt, CSRF y control de origen. La base, credenciales y extracción de documentos no se sirven por HTTP.
+
+### Ordenar pasos por número
+
+En el editor, selecciona **Ordenar pasos por número**, escribe los pasos desordenados (uno por línea) y activa **Calificar automáticamente con una clave**. Asigna a cada paso su posición correcta, del 1 al total de pasos, sin repetir números. El participante elige las posiciones con selectores; puede responder con teclado o celular y continuar un intento guardado. La pregunta otorga todos sus puntos sólo si la secuencia completa es correcta. Sin clave, se revisa manualmente. El detalle privado y el PDF de resultados muestran qué posiciones coinciden con la clave de la versión respondida.
 
 ## Datos y operación
 

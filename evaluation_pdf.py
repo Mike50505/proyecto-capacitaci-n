@@ -191,10 +191,14 @@ def evaluation_pdf(exam, root, result=None):
                 row=Table([[SelectionMark(chosen,typ=='multiple',accent),values]],colWidths=[29,CONTENT-29],splitInRow=1,cornerRadii=[8,8,8,8],hAlign='LEFT')
                 row.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),background),('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),10),('RIGHTPADDING',(0,0),(-1,-1),10),('TOPPADDING',(0,0),(-1,-1),11),('BOTTOMPADDING',(0,0),(-1,-1),7)]))
                 story.extend([row,Spacer(1,7)])
-        elif review and review['has_key'] and typ in ('matching','table'):
+        elif review and review['has_key'] and typ in ('matching','table','ordering'):
             story.append(p(f"{review['matched']} de {review['total']} respuestas correctas según la clave.",'SectionLabel'))
-            rows=[['Concepto / referencia','Respuesta registrada','Resultado','Respuesta correcta']]+[[item['label'],item['answer'] or 'Sin respuesta','Correcta' if item['correct'] else 'Incorrecta',item['correct_answer']] for item in review['items']]
+            headers=['Paso','Posición marcada','Resultado','Posición correcta'] if typ=='ordering' else ['Concepto / referencia','Respuesta registrada','Resultado','Respuesta correcta']
+            rows=[headers]+[[item['label'],item['answer'] or 'Sin respuesta','Correcta' if item['correct'] else 'Incorrecta',item['correct_answer']] for item in review['items']]
             story.append(table(rows,[item['correct'] for item in review['items']]))
+        elif typ == 'ordering':
+            story.append(p('Numera los pasos del 1 al '+str(len(question['options']))+', sin repetir posiciones.', 'MutedCopy'))
+            story.append(table([['Paso','Posición']] + [[step,(answer or {}).get(str(i),'Sin respuesta' if result else '____')] for i,step in enumerate(question['options'])]))
         elif typ == 'matching':
             story.append(table([['Concepto', 'Respuesta']] + [[row, (answer or {}).get(row, 'Sin respuesta' if result else 'Por responder')] for row in question['rows']]))
         elif typ == 'table':

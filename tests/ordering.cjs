@@ -1,0 +1,75 @@
+// Full sequence authoring/answering flow against a disposable local database.
+const {spawn}=require('node:child_process');
+const fs=require('node:fs'),path=require('node:path'),net=require('node:net');
+const assert=require('node:assert/strict');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright-core');
+const root=path.resolve(__dirname,'..');
+async function main(){
+ const folder=path.join(root,'tmp');fs.mkdirSync(folder,{recursive:true});
+ const data=fs.mkdtempSync(path.join(folder,'ordering-'));
+ const port=await new Promise(resolve=>{const socket=net.createServer();socket.listen(0,'127.0.0.1',()=>{const value=socket.address().port;socket.close(()=>resolve(value))})});
+ const base=`http://127.0.0.1:${port}`;
+ const child=spawn(process.env.TEST_PYTHON||path.join(root,'.venv','Scripts','python.exe'),['-u','server.py','--port',String(port)],{cwd:root,env:{...process.env,TRAINING_DATA_DIR:data},windowsHide:true,stdio:'ignore'});
+ let browser;
+ try{
+  let ready=false;
+  for(let i=0;i<60;i++){try{if((await fetch(base+'/api/session')).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,200))}
+  assert.ok(ready,'Temporary server did not start');
+  const password=fs.readFileSync(path.join(data,'primer_acceso.txt'),'utf8').split('Contraseña: ')[1].split('\n')[0].trim();
+  browser=await chromium.launch({headless:true,channel:'chrome'});
+  const context=await browser.newContext({viewport:{width:1400,height:1000}}),page=await context.newPage();
+  page.setDefaultTimeout(15000);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const login=await context.request.post(base+'/api/login',{data:{username:'admin',password}});assert.equal(login.status(),200);
+  await page.goto(base+'/#edit/new',{waitUntil:'networkidle'});
+  await page.locator('[name=title]').fill('Secuencia de medición');
+  await page.locator('[data-action=add-q][data-type=ordering]').click();
+  await page.locator('[data-editor-q]').first().locator('[data-action=remove-q]').click();
+  const question=page.locator('[data-editor-q]'),qid=await question.getAttribute('data-editor-q');
+  await question.locator('[data-prop=prompt]').fill('Numera la secuencia correcta para realizar una medición.');
+  await question.locator('[data-prop=options]').fill('Revisar resultado\nPreparar equipo\nRealizar medición');
+  await question.locator('[data-prop=options]').blur();
+  await question.locator('[data-key-toggle]').check();
+  await question.locator('[data-key][data-field="0"]').selectOption('3');
+  await page.waitForFunction(()=>document.querySelector('[data-key][data-field="1"] option[value="3"]')?.disabled);
+  await question.locator('[data-key][data-field="1"]').selectOption('1');
+  await question.locator('[data-key][data-field="2"]').selectOption('2');
+  await question.screenshot({path:path.join(folder,'ordering-editor.png')});
+  const published=page.waitForResponse(r=>r.url().endsWith('/publish')&&r.status()===200);
+  await page.locator('button[value=publish]').click();const response=await published;
+  const eid=new URL(response.url()).pathname.split('/').at(-2);
+  const publicExam=await (await context.request.get(base+'/api/exams/'+eid)).json();
+  assert.equal(publicExam.exam.questions[0].type,'ordering');assert.equal('correct' in publicExam.exam.questions[0],false);
+  await page.goto(base+'/#exam/'+eid,{waitUntil:'networkidle'});
+  await page.locator('#identity [name=name]').fill('Participante sintético');
+  await page.locator('#identity [name=payroll]').fill('TEST-SEQUENCE');
+  await page.locator('#identity input[type=checkbox]').check();await page.locator('#identity button.primary').click();
+  await page.locator('#attempt-form').waitFor();
+  const token=page.url().split('#attempt/')[1];
+  await page.locator('[data-q][data-field="1"]').selectOption('1');
+  await page.waitForFunction(()=>document.querySelector('#save-status').textContent==='Respuestas guardadas.');
+  await page.reload({waitUntil:'networkidle'});
+  assert.equal(await page.locator('[data-q][data-field="1"]').inputValue(),'1');
+  await page.waitForFunction(()=>document.querySelector('[data-q][data-field="0"] option[value="1"]')?.disabled);
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  assert.ok((await page.locator('[data-q][data-field="0"]').boundingBox()).height>=44);
+  await page.locator('.question').screenshot({path:path.join(folder,'ordering-mobile.png')});
+  await page.locator('[data-q][data-field="0"]').selectOption('3');
+  await page.locator('[data-q][data-field="2"]').selectOption('2');
+  await page.locator('#attempt-form button.primary').click();await page.locator('[data-action=submit-final]').click();
+  await page.locator('.score').waitFor();assert.match(await page.locator('.score').innerText(),/100/);
+  const stored=await (await context.request.get(base+'/api/attempts/'+token)).json();
+  assert.deepEqual(stored.answers[qid],{'0':'3','1':'1','2':'2'});
+  const attempt=await (await context.request.post(base+'/api/attempts',{data:{exam_id:eid,participant:{name:'Secuencia equivocada',type:'employee',payroll:'TEST-WRONG'}}})).json();
+  const wrong=await context.request.post(base+'/api/attempts/'+attempt.token+'/submit',{data:{answers:{[qid]:{'0':'2','1':'1','2':'3'}}}});assert.equal(wrong.status(),200);
+  await page.setViewportSize({width:1400,height:1000});await page.goto(base+'/#review/'+attempt.id,{waitUntil:'networkidle'});
+  await page.locator('.answer-review-table').waitFor();assert.match(await page.locator('.review-breakdown').innerText(),/1 de 3/);
+  assert.equal(await page.locator('.answer-review-table .answer-incorrect').count(),2);
+  await page.locator('.review-question').screenshot({path:path.join(folder,'ordering-review.png')});
+  const pdf=await context.request.get(base+'/api/admin/results/'+attempt.id+'/pdf');assert.equal(pdf.status(),200);
+  fs.writeFileSync(path.join(folder,'ordering-result.pdf'),await pdf.body());
+  assert.deepEqual(errors,[]);
+  console.log('PASS: sequence editor, unique positions, publication, private key, autosave/reload, mobile, grading, review and PDF.');
+ }finally{if(browser)await browser.close();child.kill();}
+}
+main().catch(error=>{console.error(error);process.exitCode=1});

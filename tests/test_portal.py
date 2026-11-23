@@ -183,6 +183,62 @@ class PortalTests(unittest.TestCase):
     def test_draft_persists_and_is_not_published(self):
         self.login();e={'title':'Borrador persistente','category':'Prueba','questions':[{'id':'q','type':'text','prompt':'Pregunta','points':1,'correct':None}]};code,data=self.request('/admin/exams','POST',e);self.assertEqual(code,201);self.assertEqual(self.request('/exams/'+data['id'])[0],404)
         with server.connect() as connection:self.assertEqual(json.loads(connection.execute('SELECT draft FROM exams WHERE id=?',(data['id'],)).fetchone()[0])['title'],e['title'])
+    def test_ordering_keys_require_a_complete_permutation(self):
+        self.login()
+        q={'id':'steps','type':'ordering','prompt':'Ordena los pasos','points':3,'required':True,
+           'options':['Revisar resultado','Preparar equipo','Realizar medición'],'correct':{'0':'3','1':'1','2':'2'}}
+        for key in [{'0':'1','1':'1','2':'3'},{'0':'3','1':'1'},{'0':'0','1':'1','2':'2'},
+                    {'0':3,'1':1,'2':2},{'0':'4','1':'1','2':'2'},{'extra':'3','1':'1','2':'2'},['3','1','2']]:
+            with self.subTest(key=key):
+                self.assertEqual(self.request('/admin/exams','POST',{'title':'Clave inválida','questions':[{**q,'correct':key}]})[0],400)
+        self.assertEqual(self.request('/admin/exams','POST',{'title':'Un paso','questions':[{**q,'options':['Único'],'correct':None}]})[0],400)
+        self.assertEqual(self.request('/admin/exams','POST',{'title':'Pasos repetidos','questions':[{**q,'options':['Mismo','Mismo'],'correct':None}]})[0],400)
+        server.validate_exam({'title':'Manual','questions':[{**q,'correct':None}]})
+
+    def test_ordering_attempt_autosave_grade_review_pdf_and_saved_version(self):
+        from io import BytesIO
+        from pypdf import PdfReader
+        self.login()
+        q={'id':'steps','type':'ordering','prompt':'Ordena los pasos','points':3,'required':True,
+           'options':['Revisar resultado','Preparar equipo','Realizar medición'],'correct':{'0':'3','1':'1','2':'2'}}
+        eid,exam=self.new_exam('Secuencia de medición',[q])
+        public=self.request('/exams/'+eid)[1]['exam']['questions'][0]
+        self.assertEqual(public['options'],q['options']);self.assertNotIn('correct',public)
+        attempt=self.start(eid);url='/attempts/'+attempt['token']
+        partial={'0':'','1':'1','2':''}
+        self.assertEqual(self.request(url,'PUT',{'answers':{'steps':partial}})[0],200)
+        self.assertEqual(self.request(url)[1]['answers']['steps'],partial)
+        self.assertEqual(self.request(url+'/submit','POST',{'answers':{'steps':partial}})[0],400)
+        for value in [{'0':'1','1':'1','2':'3'},{'0':'4'},{'extra':'1'},{'0':True},{'0':'1.5'}]:
+            self.assertEqual(self.request(url,'PUT',{'answers':{'steps':value}})[0],400)
+        code,result=self.request(url+'/submit','POST',{'answers':{'steps':q['correct']}})
+        self.assertEqual(code,200,result)
+        self.assertEqual(result['summary']['score'],100)
+        wrong=self.start(eid,payroll='TEST-ORDER-002')
+        self.assertEqual(self.request('/attempts/'+wrong['token']+'/submit','POST',{'answers':{'steps':{'0':'2','1':'1','2':'3'}}})[0],200)
+        detail=self.request('/admin/results/'+str(wrong['id']))[1]
+        self.assertEqual(detail['grading']['steps']['points'],0)
+        self.assertEqual(detail['answer_review']['steps']['matched'],1)
+        self.assertEqual(detail['answer_review']['steps']['items'][0]['label'],'Revisar resultado')
+        code,pdf=self.request('/admin/results/'+str(wrong['id'])+'/pdf')
+        self.assertEqual(code,200)
+        text='\n'.join(page.extract_text() for page in PdfReader(BytesIO(pdf)).pages)
+        self.assertIn('Revisar resultado',text);self.assertIn('Posición correcta',text)
+        self.assertEqual(self.request('/admin/exams/'+eid+'/pdf')[0],200)
+        exam['questions'][0]['correct']={'0':'1','1':'2','2':'3'}
+        self.request('/admin/exams/'+eid,'PUT',exam);self.request('/admin/exams/'+eid+'/publish','POST',{})
+        saved=self.request('/admin/results/'+str(attempt['id']))[1]
+        self.assertEqual(saved['answer_review']['steps']['correct_answer'],{'0':'3','1':'1','2':'2'})
+        self.assertEqual(saved['summary']['score'],100)
+
+    def test_ordering_optional_manual_and_complete_detection(self):
+        q={'id':'s','type':'ordering','options':['Tercero','Primero','Segundo'],'required':False,'points':5,'correct':None}
+        server.validate_answers({'questions':[q]},{},True)
+        with self.assertRaises(ValueError):server.validate_answers({'questions':[q]},{'s':{'0':'1'}},True)
+        answer={'0':'3','1':'1','2':'2'}
+        self.assertTrue(server.complete_ordering(q,answer))
+        self.assertIsNone(server.autograde({'questions':[q]},{'s':answer})['s']['points'])
+
     def test_automatic_types(self):
         questions=[{'id':'n','type':'number','points':2,'correct':25.4,'tolerance':0.01},{'id':'m','type':'multiple','points':2,'correct':['A','C']},{'id':'r','type':'matching','points':2,'correct':{'uno':'A','dos':'B'}}]
         g=server.autograde({'questions':questions},{'n':'25.405','m':['C','A'],'r':{'uno':'A','dos':'A'}});self.assertEqual([g[x]['points'] for x in ['n','m','r']],[2,2,1])

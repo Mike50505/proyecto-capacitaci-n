@@ -68,6 +68,16 @@ async function main(){
   await page.locator('.review-question').screenshot({path:path.join(folder,'ordering-review.png')});
   const pdf=await context.request.get(base+'/api/admin/results/'+attempt.id+'/pdf');assert.equal(pdf.status(),200);
   fs.writeFileSync(path.join(folder,'ordering-result.pdf'),await pdf.body());
+  await page.goto(base+'/#results',{waitUntil:'networkidle'});
+  const sort=page.locator('#admin-filters select[name=sort]');
+  assert.equal(await sort.inputValue(),'newest');
+  await sort.selectOption('oldest');
+  const sortedResponse=page.waitForResponse(r=>r.url().includes('/api/admin/results?')&&r.url().includes('sort=oldest'));
+  await page.locator('#admin-filters button[type=submit], #admin-filters button.small').first().click();
+  assert.equal((await sortedResponse).status(),200);
+  await page.waitForFunction(()=>document.querySelector('#admin-filters select[name=sort]')?.value==='oldest');
+  await page.locator('[data-action=clear-filters]').click();
+  await page.waitForFunction(()=>document.querySelector('#admin-filters select[name=sort]')?.value==='newest');
   assert.deepEqual(errors,[]);
   console.log('PASS: sequence editor, unique positions, publication, private key, autosave/reload, mobile, grading, review and PDF.');
  }finally{if(browser)await browser.close();child.kill();}

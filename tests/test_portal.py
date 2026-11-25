@@ -31,6 +31,23 @@ class PortalTests(unittest.TestCase):
         code,data=self.request('/admin/exams','POST',e);self.assertEqual(code,201,data);eid=data['id'];self.assertEqual(self.request('/admin/exams/'+eid+'/publish','POST',{})[0],200);return eid,e
     def start(self,eid,name='Participante sintético',payroll='TEST-001'):
         code,data=self.request('/attempts','POST',{'exam_id':eid,'participant':{'name':name,'type':'employee','payroll':payroll,'department':'Pruebas'}});self.assertEqual(code,201,data);return data
+    def test_results_sort_and_export(self):
+        self.login();eid,_=self.new_exam('Sort regression')
+        ids=[]
+        for name,payroll in [('Zeta','001'),('Alfa','999'),('Medio','050')]:
+            a=self.start(eid,name,payroll)
+            self.request('/attempts/'+a['token']+'/submit','POST',{'answers':{'q1':'B','q2':'Texto'}})
+            ids.append(a['id'])
+        query='/admin/results?exam='+eid
+        self.assertEqual([r['id'] for r in self.request(query)[1]],ids[::-1])
+        self.assertEqual([r['id'] for r in self.request(query+'&sort=oldest')[1]],ids)
+        self.assertEqual([r['id'] for r in self.request(query+'&sort=name')[1]],[ids[1],ids[2],ids[0]])
+        self.assertEqual([r['id'] for r in self.request(query+'&sort=payroll')[1]],[ids[0],ids[2],ids[1]])
+        self.assertEqual(self.request(query+'&sort=unknown')[0],400)
+        import csv,io
+        rows=list(csv.reader(io.StringIO(self.request('/admin/export?exam='+eid+'&sort=oldest')[1])))
+        self.assertEqual([int(r[0]) for r in rows[1:]],ids)
+
     def test_01_seed_and_no_public_keys(self):
         code,exams=self.request('/exams');self.assertEqual(code,200);self.assertEqual(len([x for x in exams if x['id'] in {f'exam-{i}' for i in range(1,7)}]),6)
         exam=self.request('/exams/exam-5')[1]['exam'];self.assertEqual(len(exam['questions']),10);self.assertTrue(all('correct' not in q and 'rubric' not in q for q in exam['questions']))

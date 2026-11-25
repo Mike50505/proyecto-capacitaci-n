@@ -423,7 +423,12 @@ class Handler(BaseHTTPRequestHandler):
                     if params.get('from') and item['submitted_at'][:10]<params['from'][0]:continue
                     if params.get('to') and item['submitted_at'][:10]>params['to'][0]:continue
                     result.append(item)
-                result.sort(key=lambda r:(not bool(r['participant']['payroll']),len(r['participant']['payroll']),r['participant']['payroll'].casefold()))
+                order=params.get('sort',['newest'])[0]
+                if order not in ('newest','oldest','name','payroll'):
+                    raise ValueError('Orden de resultados no válido.')
+                result.sort(key=lambda r:(r['submitted_at'],r['id']),reverse=order!='oldest')
+                if order=='name':result.sort(key=lambda r:r['participant']['name'].casefold())
+                if order=='payroll':result.sort(key=lambda r:(not bool(r['participant']['payroll']),len(r['participant']['payroll']),r['participant']['payroll'].casefold()))
                 if path=='/api/admin/results':return self.send_json(result)
                 if path=='/api/admin/dashboard':
                     graded=[r for r in result if r['status']=='graded'];passed=sum(r['summary']['passed'] for r in graded);by_exam={};by_day={}
